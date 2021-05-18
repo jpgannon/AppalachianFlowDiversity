@@ -1,0 +1,96 @@
+---
+title: "Stats"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Basic daily value stats: mean, median, standard deviation, IQR, 10th percentile, 90th percentile
+
+```{r}
+QdvStats <- QdatDV %>% group_by(site_no) %>%
+  summarize(Mean = mean(Qmm_day),
+            Median = median(Qmm_day),
+            StandardDeviation = sd(Qmm_day),
+            IQR = IQR(Qmm_day),
+            TenthP = quantile(Qmm_day, probs = c(0.10)),
+            NinetiethP = quantile(Qmm_day, probs = c(0.9)))
+
+QdvStats <- left_join(QdvStats, AppGagesSlim, by = c("site_no" = "STAID"))
+
+write.csv(QdvStats, "QdvStats.csv")
+```
+
+Flow duration curve prep: ranking, exceedance probability
+
+```{r}
+QdatDV <- QdatDV %>%
+  group_by(site_no) %>%
+  mutate(rank = rank(-Qmm_day)) %>% 
+  mutate(P = 100 * (rank / (length(Qmm_day) + 1)))
+```
+
+7Q10 (incomplete)
+
+```{r}
+Xday <- 7
+YrecInt <- 10
+
+#rolling mean
+QdatDV <- QdatDV %>% 
+                  group_by(site_no) %>%
+                  mutate(xdaymean = rollmean(csm, 
+                                            Xday, 
+                                            fill = NA, 
+                                            na.rm = F, 
+                                            align = "right"))
+
+#yealy minimums, excluding years missing > 10% of each year and 10% or greater NAs
+QyearlyMins <- QdatDV %>% mutate(year = year(Date)) %>%
+                        group_by(year, site_no) %>%
+                        summarize(minQ = min(xdaymean, na.rm = T), 
+                                  lenDat = length(csm),
+                                  lenNAs = sum(is.na(xdaymean))) %>%
+                        filter(lenDat > 328 & lenNAs / lenDat < 0.1) 
+
+QyearlyMins <- QyearlyMins %>% 
+                mutate(rank = rank(minQ, ties.method = "first")) %>%
+                mutate(ReturnInterval = (length(rank) + 1)/rank) %>%
+                mutate(ExceedProb = 1 / ReturnInterval)
+      
+ggplot(QyearlyMins, aes(x = ReturnInterval, y = minQ))+
+  geom_point()
+
+
+```
+
+Peak flow stuff (incomplete)
+
+```{r}
+peaks <- readNWISpeak(sitenos, "1981-01-01", "2010-12-30")
+
+peaks <- left_join(peaks, AppGages, by = c("site_no" = "STAID"))
+
+#area normalizaed (csm)
+peaks <- peaks %>% mutate(csm = peak_va / (0.386102 * DRAIN_SQKM))
+
+
+
+peaks <- peaks %>% 
+              group_by(site_no) %>%
+              mutate(ranks = rank(-csm))%>%
+              mutate(P = 100 * (ranks / (31)))
+
+peaks %>% ggplot(aes(x = P, y = csm, color = SECTION))+
+  geom_point()+
+  scale_y_log10()+
+  xlab("% Time flow equalled or exceeded")+
+  ylab("Q (csm)")
+
+peaks %>% ggplot(aes(SECTION, csm))+
+  stat_boxplot()+
+  scale_y_log10()+
+  theme(axis.text.x = element_text(angle = 90))
+```

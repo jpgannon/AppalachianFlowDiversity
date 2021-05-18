@@ -1,0 +1,83 @@
+---
+title: "Plotting"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Basic stats maps
+
+```{r}
+QdvStatsSF <- QdvStats %>% st_as_sf(sf_column_name = "geometry")
+
+#mean
+MeanQMap <- tm_shape(QdvStatsSF)+
+  tm_symbols(col = "Mean", size = 0.2, style = "quantile", border.lwd = NA, legend.hist = TRUE)+
+  tm_layout(legend.outside = TRUE)+
+tm_shape(us_states)+
+  tm_borders()
+
+#median
+MedQMap <- tm_shape(QdvStatsSF)+
+  tm_symbols(col = "Median", size = 0.2, style = "quantile", border.lwd = NA, legend.hist = TRUE)+
+  tm_layout(legend.outside = TRUE)+
+tm_shape(us_states)+
+  tm_borders()
+
+#standard deviation
+SdQMap <- tm_shape(QdvStatsSF)+
+  tm_symbols(col = "StandardDeviation", size = 0.2, style = "quantile", border.lwd = NA, legend.hist = TRUE)+
+  tm_layout(legend.outside = TRUE)+
+tm_shape(us_states)+
+  tm_borders()
+
+#IQR
+IqrQMap <- tm_shape(QdvStatsSF)+
+  tm_symbols(col = "IQR", size = 0.2, style = "quantile", border.lwd = NA, legend.hist = TRUE)+
+  tm_layout(legend.outside = TRUE)+
+tm_shape(us_states)+
+  tm_borders()
+
+#10th percentile
+TenthPQMap <- tm_shape(QdvStatsSF)+
+  tm_symbols(col = "TenthP", size = 0.2, style = "quantile", border.lwd = NA, legend.hist = TRUE)+
+  tm_layout(legend.outside = TRUE)+
+tm_shape(us_states)+
+  tm_borders()
+
+#90th percentile
+NinetiethPQMap <- tm_shape(QdvStatsSF)+
+  tm_symbols(col = "NinetiethP", size = 0.2, style = "quantile", border.lwd = NA, legend.hist = TRUE)+
+  tm_layout(legend.outside = TRUE)+
+tm_shape(us_states)+
+  tm_borders()
+
+MeanQMap
+MedQMap
+SdQMap
+IqrQMap
+TenthPQMap
+NinetiethPQMap
+
+tmap_save(MeanQMap, "MeanQMap.jpg")
+tmap_save(MedQMap, "MedianQMap.jpg")
+tmap_save(SdQMap, "SdQMap.jpg")
+tmap_save(IqrQMap, "IqrQMap.jpg")
+tmap_save(TenthPQMap, "TenthPercentQ.jpg")
+tmap_save(NinetiethPQMap, "NinetiethPecentQ.jpg")
+```
+
+Flow duration curve
+
+```{r}
+FDC <- QdatDV %>% ggplot(aes(x = P, y = Qmm_day, color = site_no))+
+  geom_line(show.legend = FALSE)+
+  facet_wrap(facets = "SECTION", ncol = 2)+
+  scale_y_log10()+
+  xlab("% Time flow equalled or exceeded")+
+  ylab("Q (mm/day)")
+
+ggsave("FDC.jpg", FDC, width = 4, height = 20)
+```

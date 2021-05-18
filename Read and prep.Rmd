@@ -1,0 +1,45 @@
+---
+title: "Read in"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Daily means
+
+```{r}
+sitenos <- AppGages$STAID
+parameterCd <- "00060" 
+startDate <- "1981-01-01"  
+endDate <- "2010-12-31"
+
+
+#117 gages: 13 groups of 9
+for(i in 1:13)
+{
+
+if(i == 1){
+  QdatDV <- readNWISdv(sitenos[((9 * (i - 1)) + 1):(9 * i)], parameterCd, startDate, endDate)
+}else{
+   QdatDVnew <- readNWISdv(sitenos[((9 * (i - 1)) + 1):(9 * i)], parameterCd, startDate, endDate) 
+  QdatDV <- rbind(QdatDVnew, QdatDV)
+   }
+}
+```
+
+Join to attribute table, calculate area-normalized flow in mm/day
+
+```{r}
+QdatDV <- QdatDV %>% renameNWISColumns()
+
+write.csv(QdatDV, "QdatDV.csv")
+
+AppGagesSlim <- AppGages %>% select(DIVISION, PROVINCE, SECTION, STAID, station_nm, DRAIN_SQKM, huc_cd, LAT_GAGE, LNG_GAGE, STATE, alt_va, geometry)
+
+QdatDV <- left_join(QdatDV, AppGagesSlim, by = c("site_no" = "STAID"))
+
+#cfs to mm/day
+QdatDV <- QdatDV %>% mutate(Qmm_day = 2.447 * Flow / DRAIN_SQKM)
+```
