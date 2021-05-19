@@ -14,42 +14,42 @@ QdvStatsSF <- QdvStats %>% st_as_sf(sf_column_name = "geometry")
 
 #mean
 MeanQMap <- tm_shape(QdvStatsSF)+
-  tm_symbols(col = "Mean", size = 0.2, style = "quantile", border.lwd = NA, legend.hist = TRUE)+
+  tm_symbols(col = "Mean", size = 0.2, style = "quantile", legend.hist = TRUE)+
   tm_layout(legend.outside = TRUE)+
 tm_shape(us_states)+
   tm_borders()
 
 #median
 MedQMap <- tm_shape(QdvStatsSF)+
-  tm_symbols(col = "Median", size = 0.2, style = "quantile", border.lwd = NA, legend.hist = TRUE)+
+  tm_symbols(col = "Median", size = 0.2, style = "quantile", legend.hist = TRUE)+
   tm_layout(legend.outside = TRUE)+
 tm_shape(us_states)+
   tm_borders()
 
 #standard deviation
 SdQMap <- tm_shape(QdvStatsSF)+
-  tm_symbols(col = "StandardDeviation", size = 0.2, style = "quantile", border.lwd = NA, legend.hist = TRUE)+
+  tm_symbols(col = "StandardDeviation", size = 0.2, style = "quantile", legend.hist = TRUE)+
   tm_layout(legend.outside = TRUE)+
 tm_shape(us_states)+
   tm_borders()
 
 #IQR
 IqrQMap <- tm_shape(QdvStatsSF)+
-  tm_symbols(col = "IQR", size = 0.2, style = "quantile", border.lwd = NA, legend.hist = TRUE)+
+  tm_symbols(col = "IQR", size = 0.2, style = "quantile", legend.hist = TRUE)+
   tm_layout(legend.outside = TRUE)+
 tm_shape(us_states)+
   tm_borders()
 
 #10th percentile
 TenthPQMap <- tm_shape(QdvStatsSF)+
-  tm_symbols(col = "TenthP", size = 0.2, style = "quantile", border.lwd = NA, legend.hist = TRUE)+
+  tm_symbols(col = "TenthP", size = 0.2, style = "quantile", legend.hist = TRUE)+
   tm_layout(legend.outside = TRUE)+
 tm_shape(us_states)+
   tm_borders()
 
 #90th percentile
 NinetiethPQMap <- tm_shape(QdvStatsSF)+
-  tm_symbols(col = "NinetiethP", size = 0.2, style = "quantile", border.lwd = NA, legend.hist = TRUE)+
+  tm_symbols(col = "NinetiethP", size = 0.2, style = "quantile", legend.hist = TRUE)+
   tm_layout(legend.outside = TRUE)+
 tm_shape(us_states)+
   tm_borders()
@@ -61,23 +61,116 @@ IqrQMap
 TenthPQMap
 NinetiethPQMap
 
-tmap_save(MeanQMap, "MeanQMap.jpg")
-tmap_save(MedQMap, "MedianQMap.jpg")
-tmap_save(SdQMap, "SdQMap.jpg")
-tmap_save(IqrQMap, "IqrQMap.jpg")
-tmap_save(TenthPQMap, "TenthPercentQ.jpg")
-tmap_save(NinetiethPQMap, "NinetiethPecentQ.jpg")
+tmap_save(MeanQMap, "Plots/MeanQMap.jpg")
+tmap_save(MedQMap, "Plots/MedianQMap.jpg")
+tmap_save(SdQMap, "Plots/SdQMap.jpg")
+tmap_save(IqrQMap, "Plots/IqrQMap.jpg")
+tmap_save(TenthPQMap, "Plots/TenthPercentQMap.jpg")
+tmap_save(NinetiethPQMap, "Plots/NinetiethPecentQMap.jpg")
 ```
 
 Flow duration curve
 
 ```{r}
-FDC <- QdatDV %>% ggplot(aes(x = P, y = Qmm_day, color = site_no))+
-  geom_line(show.legend = FALSE)+
-  facet_wrap(facets = "SECTION", ncol = 2)+
+FDC <- QdatDV %>% ggplot(aes(x = P, y = Qmm_day, group = site_no, color = PROVINCE))+
+  geom_line()+
   scale_y_log10()+
   xlab("% Time flow equalled or exceeded")+
   ylab("Q (mm/day)")
 
-ggsave("FDC.jpg", FDC, width = 4, height = 20)
+FDC
+ggsave("FDC.jpg", FDC)
+
+
+
+FDC_lows <- QdatDV %>% ggplot(aes(x = P, y = Qmm_day, group = site_no, color = PROVINCE))+
+  geom_line()+
+  xlim(90, 100)+
+  ylim(0,1.2)+
+  #scale_y_log10()+
+  xlab("% Time flow equalled or exceeded")+
+  ylab("Q (mm/day)")
+
+FDC_lows
+ggsave("Plots/FDC_lows.jpg", FDC_lows)
+
+
+
+FDC_highs <- QdatDV %>% ggplot(aes(x = P, y = Qmm_day, group = site_no, color = PROVINCE))+
+  geom_line()+
+  xlim(0, 0.5)+
+  #scale_y_log10()+
+  xlab("% Time flow equalled or exceeded")+
+  ylab("Q (mm/day)")
+
+FDC_highs
+ggsave("Plots/FDC_highs.jpg", FDC_highs)
+
+
+
+FDC_short <- QdatDV %>% ggplot(aes(x = P, y = Qmm_day, group = site_no, color = PROVINCE))+
+  geom_line()+
+  ylim(0, 5)+
+  #scale_y_log10()+
+  xlab("% Time flow equalled or exceeded")+
+  ylab("Q (mm/day)")
+
+FDC_short
+ggsave("Plots/FDC_short.jpg", FDC_short)
+```
+
+7Q10
+
+```{r}
+SevenQtenSF <- SevenQten %>% st_as_sf(sf_column_name = "geometry")
+
+SevenQtenMap <- tm_shape(SevenQtenSF)+
+  tm_symbols(col = "PearsonxQy", size = 0.2, style = "quantile", legend.hist = TRUE)+
+  tm_layout(title = "7Q10", legend.outside = TRUE)+
+tm_shape(us_states)+
+  tm_borders()
+
+SevenQtenMap
+tmap_save(SevenQtenMap, "Plots/SevenQtenMap.jpg")
+
+SevenQtenBox <- SevenQten %>% ggplot(aes(PROVINCE, PearsonxQy))+
+  stat_boxplot()+
+  ylab("7Q10 (mm/day)")+
+  theme(axis.text.x = element_text(angle = 90))
+
+SevenQtenBox
+ggsave("Plots/SevenQtenBoxplot.jpg", SevenQtenBox)
+```
+
+Baseflow
+
+```{r}
+BFI_meansSF <- BFI_means %>% st_as_sf(sf_column_name = "geometry")
+
+BFIMap <- tm_shape(BFI_meansSF)+
+  tm_symbols(col = "BFI_MeanAnnual", size = 0.2, style = "quantile", legend.hist = TRUE)+
+  tm_layout(legend.outside = TRUE)+
+tm_shape(us_states)+
+  tm_borders()
+
+BFIMap
+tmap_save(BFIMap, "Plots/BFIMap.jpg")
+
+BFIBox <- BFI_means %>% ggplot(aes(PROVINCE, BFI_MeanAnnual))+
+  stat_boxplot()+
+  ylab("BFI")+
+  theme(axis.text.x = element_text(angle = 90))
+
+BFIBox
+ggsave("Plots/BFIBoxplot.jpg", BFIBox)
+```
+
+wonky BFI test
+
+```{r}
+BFItest <- QdatBaseflow %>% filter(site_no == "01542810")
+
+BFItest %>% ggplot(aes(Date, Flow, col = "Red"))+
+  geom_line()+
+  geom_line(aes(Date, bt, col = "Blue"))
 ```

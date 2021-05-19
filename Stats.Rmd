@@ -16,7 +16,8 @@ QdvStats <- QdatDV %>% group_by(site_no) %>%
             StandardDeviation = sd(Qmm_day),
             IQR = IQR(Qmm_day),
             TenthP = quantile(Qmm_day, probs = c(0.10)),
-            NinetiethP = quantile(Qmm_day, probs = c(0.9)))
+            NinetiethP = quantile(Qmm_day, probs = c(0.9)),
+            Count = n())
 
 QdvStats <- left_join(QdvStats, AppGagesSlim, by = c("site_no" = "STAID"))
 
@@ -41,7 +42,7 @@ YrecInt <- 10
 #rolling mean
 QdatDV <- QdatDV %>% 
                   group_by(site_no) %>%
-                  mutate(xdaymean = rollmean(csm, 
+                  mutate(xdaymean = rollmean(Qmm_day, 
                                             Xday, 
                                             fill = NA, 
                                             na.rm = F, 
@@ -51,19 +52,42 @@ QdatDV <- QdatDV %>%
 QyearlyMins <- QdatDV %>% mutate(year = year(Date)) %>%
                         group_by(year, site_no) %>%
                         summarize(minQ = min(xdaymean, na.rm = T), 
-                                  lenDat = length(csm),
+                                  lenDat = length(Qmm_day),
                                   lenNAs = sum(is.na(xdaymean))) %>%
                         filter(lenDat > 328 & lenNAs / lenDat < 0.1) 
 
-QyearlyMins <- QyearlyMins %>% 
+#ranks, exceedance probs, return intervals
+QyearlyMins <- QyearlyMins %>% group_by(site_no) %>% 
                 mutate(rank = rank(minQ, ties.method = "first")) %>%
                 mutate(ReturnInterval = (length(rank) + 1)/rank) %>%
                 mutate(ExceedProb = 1 / ReturnInterval)
-      
-ggplot(QyearlyMins, aes(x = ReturnInterval, y = minQ))+
-  geom_point()
+ 
+#Xbar, S, g
+#note: sites 01613050 and 03237280 produced NaNs
+QyearlyMins <- QyearlyMins %>% group_by(site_no) %>%
+                mutate(Xbar = mean(log10(minQ))) %>%
+                mutate(S = sd(log10(minQ))) %>%
+                mutate(g = skewness(log10(minQ)))
+
+#Z, K, Qfit
+QyearlyMins <- QyearlyMins %>% group_by(site_no) %>%
+                mutate(z = 4.91 * ((1 / ReturnInterval) ^ 0.14 - (1 - 1 / ReturnInterval) ^ 0.14)) %>%
+                mutate(K = (2 / g) * (((1 + (g * z) / 6 - (g ^ 2) / 36) ^ 3) - 1) ) %>%
+                mutate(Qfit = 10^(Xbar + (K * S)))
 
 
+
+#7Q10
+#note: "median()" is arbitrary. added to prevent duplicates in summary table
+zrecInt <- 4.91 * ((1 / YrecInt) ^ 0.14 - (1 - 1 / YrecInt) ^ 0.14)
+
+SevenQten <- QyearlyMins %>% group_by(site_no) %>%
+                summarize(K = (2 / median(g)) * (((1 + (median(g) * zrecInt) / 6 - (median(g) ^ 2) / 36) ^ 3) - 1),
+                          PearsonxQy = 10^(median(Xbar) + K * median(S)))
+
+
+#join to attributes
+SevenQten <- left_join(SevenQten, AppGagesSlim, by = c("site_no" = "STAID"))
 ```
 
 Peak flow stuff (incomplete)
@@ -93,4 +117,46 @@ peaks %>% ggplot(aes(SECTION, csm))+
   stat_boxplot()+
   scale_y_log10()+
   theme(axis.text.x = element_text(angle = 90))
+```
+
+Baseflow
+
+```{r}
+#exclude sites with gaps in data
+QdatBaseflow <- QdatDV %>% filter(site_no != "03050000" & site_no != "03281100" & site_no != "03450000" & site_no != "03187500" & site_no != "01613050" & site_no != "03159540")
+
+#vector with flow
+FlowBase <- QdatBaseflow$Flow
+
+
+#baseflow separation for 111 gages
+for(i in 1:111)
+{
+
+if(i == 1){
+  Baseflow <-BaseflowSeparation(FlowBase[((10957 * (i - 1)) + 1):(10957 * i)], 0.925, 3)
+}else{
+   Baseflownew <- BaseflowSeparation(FlowBase[((10957 * (i - 1)) + 1):(10957 * i)], 0.925, 3) 
+  Baseflow <- rbind(Baseflownew, Baseflow)
+   }
+}
+                                                    
+#add to original dataframe
+QdatBaseflow <- cbind(Baseflow, QdatBaseflow)
+
+
+
+#sum total flow, baseflow for each gage each year. BFI calculation
+BFyearlysum <- QdatBaseflow %>% mutate(Year = year(Date)) %>%
+  group_by(Year, site_no) %>%
+  summarize(BFyear = sum(bt),
+            Qyear = sum(Flow),
+            BFI = BFyear / Qyear)
+
+#average annual BFI
+BFI_means <- BFyearlysum %>% group_by(site_no) %>%
+  summarize(BFI_MeanAnnual = mean(BFI))
+
+#join to attributes
+BFI_means <- left_join(BFI_means, AppGagesSlim, by = c("site_no" = "STAID"))
 ```

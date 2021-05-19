@@ -36,10 +36,24 @@ QdatDV <- QdatDV %>% renameNWISColumns()
 
 write.csv(QdatDV, "QdatDV.csv")
 
+
+
+
+
+QdatDV <- read_csv("QdatDV.csv")
+
 AppGagesSlim <- AppGages %>% select(DIVISION, PROVINCE, SECTION, STAID, station_nm, DRAIN_SQKM, huc_cd, LAT_GAGE, LNG_GAGE, STATE, alt_va, geometry)
 
 QdatDV <- left_join(QdatDV, AppGagesSlim, by = c("site_no" = "STAID"))
 
 #cfs to mm/day
 QdatDV <- QdatDV %>% mutate(Qmm_day = 2.447 * Flow / DRAIN_SQKM)
+```
+
+Baseflow
+
+```{r}
+write.csv(QdatBaseflow, "QdatBaseflow.csv")
+
+QdatBaseflow <- read_csv("QdatBaseflow.csv")
 ```
