@@ -44,10 +44,14 @@ QdatDV <- read_csv("QdatDV.csv")
 
 AppGagesSlim <- AppGages %>% select(DIVISION, PROVINCE, SECTION, STAID, station_nm, DRAIN_SQKM, huc_cd, LAT_GAGE, LNG_GAGE, STATE, alt_va, geometry)
 
-QdatDV <- left_join(QdatDV, AppGagesSlim, by = c("site_no" = "STAID"))
+QdatDV <- inner_join(QdatDV, AppGagesSlim, by = c("site_no" = "STAID"))
 
 #cfs to mm/day
 QdatDV <- QdatDV %>% mutate(Qmm_day = 2.447 * Flow / DRAIN_SQKM)
+
+
+
+AppGagesSlim <- AppGagesSlim %>% filter(PROVINCE != "NEW ENGLAND" & PROVINCE != "ADIRONDACK" & SECTION != "SOUTHERN NEW YORK" & SECTION != "CATSKILL")
 ```
 
 Baseflow
@@ -56,4 +60,24 @@ Baseflow
 write.csv(QdatBaseflow, "QdatBaseflow.csv")
 
 QdatBaseflow <- read_csv("QdatBaseflow.csv")
+```
+
+Watershed characteristics
+
+```{r}
+#All from GAGESII
+
+Soils <- read_csv("GAGESII_soils.csv") %>%
+  filter(STAID %in% sitenos)
+
+Landcover <- full_join(read_csv("GAGESII_LC.csv"), read_csv("GAGESII_LCriparian.csv"), by = "STAID") %>% 
+  filter(STAID %in% sitenos)
+
+Topography <- read_csv("GAGESII_topo.csv") %>%
+  filter(STAID %in% sitenos)
+
+WSfactors <- full_join(read_csv("GAGESII_geology.csv"), read_csv("GAGESII_hydro.csv"), by = "STAID") %>%
+  full_join(read_csv("GAGESII_climate.csv"), by = "STAID") %>%
+  full_join(read_csv("GAGESII_basin.csv"), by = "STAID") %>%
+  filter(STAID %in% sitenos)
 ```

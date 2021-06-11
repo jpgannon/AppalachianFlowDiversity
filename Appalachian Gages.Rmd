@@ -20,6 +20,16 @@ library(sf)
 library(tmap)
 library(spData)
 library(repr)
+library(zoo)
+library(lubridate)
+library(moments)
+library(ContDataQC)
+library(broom)
+library(AICcmodavg)
+library(raster)
+
+#note: ecohydology doesn't play nice with other packages
+#library(EcoHydRology)
 
 tmap_mode("plot")
 
@@ -60,7 +70,7 @@ AppRegions <- st_read("AppalachianRegions.shp")
     Science Center evaluators.
 
 ```{r}
-AppGages <- AppGages %>% filter(HCDN_2009 == "yes")
+AppGages <- AppGages %>% filter(HCDN_2009 == "yes") %>% filter(PROVINCE != "NEW ENGLAND" & PROVINCE != "ADIRONDACK" & SECTION != "SOUTHERN NEW YORK" & SECTION != "CATSKILL")
 
 ```
 
