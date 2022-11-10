@@ -144,16 +144,17 @@ FlowBase <- QdatBaseflow$Flow
 
 #baseflow separation for 111 gages
 #10957 = 30 yr * 365 days + 7 leap days
-for(i in 1:111)
-{
-
-if(i == 1){
-  Baseflow <-BaseflowSeparation(FlowBase[((10957 * (i - 1)) + 1):(10957 * i)], 0.925, 3)
-}else{
-   Baseflownew <- BaseflowSeparation(FlowBase[((10957 * (i - 1)) + 1):(10957 * i)], 0.925, 3) 
-  Baseflow <- rbind(Baseflow, Baseflownew)
-   }
-}
+#when you get to this point you need the source code for baseflow 
+# for(i in 1:111)
+# {
+# 
+# if(i == 1){
+#   Baseflow <-BaseflowSeparation(FlowBase[((10957 * (i - 1)) + 1):(10957 * i)], 0.925, 3)
+# }else{
+#    Baseflownew <- BaseflowSeparation(FlowBase[((10957 * (i - 1)) + 1):(10957 * i)], 0.925, 3) 
+#   Baseflow <- rbind(Baseflow, Baseflownew)
+#    }
+# }
                                                     
 #add to original dataframe
 QdatBaseflow <- cbind(Baseflow, QdatBaseflow)
