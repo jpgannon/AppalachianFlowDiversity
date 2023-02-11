@@ -1,0 +1,118 @@
+### Random forest.. i have no idea what I'm doing yet
+
+
+### Load libraries
+```{r}
+library(tidyverse)
+library(rsample)      # data splitting 
+library(randomForest) # basic implementation
+library(ranger)       # a faster implementation of randomForest
+library(caret)        # an aggregator package for performing many machine learning models
+#library(h2o)          # an extremely fast java-based platform
+library(RColorBrewer)
+library(corrplot)
+
+```
+
+###Prep data
+```{r}
+stats_attr <- read_csv("QdvStats.csv")
+paramTypes <- read_csv("WSfactorsLarge.csv")
+
+#stats
+forRF <- paramTypes %>%
+  select(-STAID, -SECTION, -DIVISION, -PROVINCE, -STANAME, -STATE, -X26, -GEOL_HUNT_DOM_DESC, -GEOL_REEDBUSH_DOM, -GEOL_REEDBUSH_DOM_PCT)
+
+# should i add RBI...
+
+forRF <- forRF %>%
+  slice_tail(n = 80)
+
+```
+
+### Train model
+
+# having trouble with mtry's and the hyper grid notion
+```{r}
+# hyperparameter grid search
+hyper_grid <- expand.grid(
+  #mtry       = seq(20, 30, by = 2), #mtry should be square of available params (35)
+  mtry       = seq(3,7, by = 1),
+  node_size  = seq(2,9, by = 2),
+  sampe_size = c(.55, .632, .70, .80),
+  OOB_RMSE   = 0
+)
+
+# total number of combinations
+nrow(hyper_grid)
+## [1] (need) 87
+
+
+for(i in 1:nrow(hyper_grid)) {
+  
+  # train model
+  model <- ranger(
+    formula         = IQR ~ ., #RBI is what you're trying to predict 
+    data            = forRF, #for RF is all the other parameters
+    num.trees       = 500,
+    mtry            = hyper_grid$mtry[i],
+    min.node.size   = hyper_grid$node_size[i],
+    sample.fraction = hyper_grid$sampe_size[i],
+    seed            = 123
+  )
+  
+  # add OOB error to grid
+  hyper_grid$OOB_RMSE[i] <- sqrt(model$prediction.error)
+}
+
+hyper_grid %>% 
+  dplyr::arrange(OOB_RMSE) %>%
+  head(10)
+
+```
+
+```{r}
+OOB_RMSE <- vector(mode = "numeric", length = 100)
+
+for(i in seq_along(OOB_RMSE)) {
+
+  optimal_ranger <- ranger(
+    formula         = RBI ~ ., 
+    data            = forRF, 
+    num.trees       = 500,
+    mtry            = 7, #was 26
+    min.node.size   = 7, #was 5
+    sample.fraction = .8,
+    importance      = 'impurity'
+  )
+  
+  OOB_RMSE[i] <- sqrt(optimal_ranger$prediction.error)
+}
+
+hist(OOB_RMSE, breaks = 20)
+```
+
+```{r}
+#for perKGC plot
+importancesAll <- optimal_ranger$variable.importance %>% 
+      as_tibble() %>% 
+      bind_cols(names(optimal_ranger$variable.importance)) %>%
+      rename(importance = value, param = '...2') %>%
+      mutate(KGC = "All")
+
+RF_import_ALL_noCORR <- optimal_ranger$variable.importance %>% 
+  tidy() %>%
+  left_join(paramTypes, by = c("names" = "Params")) %>%
+  dplyr::arrange(desc(x)) %>%
+ # dplyr::top_n(25) %>%
+  ggplot(aes(reorder(names, x), x, fill = Type)) +
+  geom_col() +
+  coord_flip()+
+  scale_fill_brewer(palette="Set1")+
+  theme_minimal()+
+  xlab("Predictors")+
+  ylab("Importance")
+  
+RF_import_ALL_noCORR
+```
+
