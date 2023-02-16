@@ -10,13 +10,14 @@ knitr::opts_chunk$set(echo = TRUE)
 Basic daily value stats: mean, median, standard deviation, IQR, 10th percentile, 90th percentile
 
 ```{r}
-QdvStats <- QdatDV %>% group_by(site_no) %>%
-  summarize(Mean = mean(Qmm_day),
-            Median = median(Qmm_day),
-            StandardDeviation = sd(Qmm_day),
-            IQR = IQR(Qmm_day),
-            TenthP = quantile(Qmm_day, probs = c(0.10)),
-            NinetiethP = quantile(Qmm_day, probs = c(0.9)),
+QdvStats <- QdatDV %>% 
+  group_by(site_no) %>%
+  summarize(Mean = mean(Flow),
+            Median = median(Flow),
+            StandardDeviation = sd(Flow),
+            IQR = IQR(Flow),
+            TenthP = quantile(Flow, probs = c(0.10)),
+            NinetiethP = quantile(Flow, probs = c(0.9)),
             Count = n())
 
 QdvStats <- left_join(QdvStats, AppGagesSlim, by = c("site_no" = "STAID"))

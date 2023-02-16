@@ -1,0 +1,50 @@
+### In this RMD I am calculating a multiple linear regression to predict hydrologic signatures and flow regimes
+
+###load libraries
+```{r}
+library(tidyverse)
+# install.packages("olsrr")
+library(olsrr)
+library(ggplot2)
+
+```
+
+### load in data
+```{r}
+forMR <- read_csv("WSfactorsLarge.csv")
+
+head(forMR)
+
+#clean data
+# forMR <- forMR %>%
+#   dplyr::select(-PROVINCE, -SECTION, -STANAME, -LAT_GAGE, -LNG_GAGE, -STATE, -geometry,-STAIDnum, -DIVISION, -...1)
+
+#join data into one table
+# df <- left_join(stats, attributes, by = c("site_no"="STAID"))
+```
+
+```{r}
+names(forMR)
+
+#using AIC instead of R2
+simple1 <- step(
+  lm(data=forMR, forMR[[9]]~slope_fdc+TOPWET+DRAIN_SQKM),
+  direction = "both")
+summary(simple1)
+
+for (i in 6:106) {
+  factors <- names(forMR)[i]
+  modelboth <- try(step(
+    lm(data = forMR, forMR[[i]]~forMR[[5]]+forMR[[7]] + forMR[[8]] + forMR[[10]]),
+    direction = "both"))
+  try({
+    ID.column <- rep(factors, length(modelboth$coefficients))
+    data.both <- data.frame(modelboth)
+    data.both <- cbind(ID.column, data.both)
+    data.both <- rbind(data.new, data.both)
+    data.new <- cbind(factors)
+  })
+}
+
+```
+

@@ -5,6 +5,13 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+
+setwd("C:/Users/lfink/Desktop/Hydro Research 2022 2023/Exports")
+
+library(dataRetrieval)
+library(tidyverse)
+install.packages('conflicted')
+library(conflicted)
 ```
 
 ## Daily means
@@ -16,14 +23,13 @@ startDate <- "1981-01-01"
 endDate <- "2010-12-31"
 
 
-#117 gages: 13 groups of 9
-for(i in 1:13)
+#117 gages: 3 groups of 31
+for(i in 1:93)
 {
-
 if(i == 1){
-  QdatDV <- readNWISdv(sitenos[((9 * (i - 1)) + 1):(9 * i)], parameterCd, startDate, endDate)
+  QdatDV <- readNWISdv(sitenos[i], parameterCd, startDate, endDate)
 }else{
-   QdatDVnew <- readNWISdv(sitenos[((9 * (i - 1)) + 1):(9 * i)], parameterCd, startDate, endDate) 
+   QdatDVnew <- readNWISdv(sitenos[i], parameterCd, startDate, endDate) 
   QdatDV <- rbind(QdatDVnew, QdatDV)
    }
 }
@@ -37,12 +43,12 @@ QdatDV <- QdatDV %>% renameNWISColumns()
 write.csv(QdatDV, "QdatDV.csv")
 
 
-
-
-
 QdatDV <- read_csv("QdatDV.csv")
 
-AppGagesSlim <- AppGages %>% select(DIVISION, PROVINCE, SECTION, STAID, station_nm, DRAIN_SQKM, huc_cd, LAT_GAGE, LNG_GAGE, STATE, alt_va, geometry)
+conflict_prefer("select", "dplyr")
+
+AppGagesSlim <- AppGages %>% 
+  select(DIVISION, PROVINCE, SECTION, STAID, station_nm, DRAIN_SQKM, huc_cd, LAT_GAGE, LNG_GAGE, STATE, alt_va, geometry)
 
 QdatDV <- inner_join(QdatDV, AppGagesSlim, by = c("site_no" = "STAID"))
 
@@ -51,7 +57,8 @@ QdatDV <- QdatDV %>% mutate(Qmm_day = 2.447 * Flow / DRAIN_SQKM)
 
 
 
-AppGagesSlim <- AppGagesSlim %>% filter(PROVINCE != "NEW ENGLAND" & PROVINCE != "ADIRONDACK" & SECTION != "SOUTHERN NEW YORK" & SECTION != "CATSKILL")
+AppGagesSlim <- AppGagesSlim %>% 
+  filter(PROVINCE != "NEW ENGLAND" & PROVINCE != "ADIRONDACK" & SECTION != "SOUTHERN NEW YORK" & SECTION != "CATSKILL")
 ```
 
 Baseflow
@@ -67,17 +74,19 @@ Watershed characteristics
 ```{r}
 #All from GAGESII
 
-Soils <- read_csv("GAGESII_soils.csv") %>%
+setwd("C:/Users/lfink/Desktop/Hydro Research 2022 2023/CAMELSII Data/Watershed characteristics")
+
+Soils <- read_csv("conterm_soils.txt") %>%
   filter(STAID %in% sitenos)
 
-Landcover <- full_join(read_csv("GAGESII_LC.csv"), read_csv("GAGESII_LCriparian.csv"), by = "STAID") %>% 
+Landcover <- full_join(read_csv("conterm_lc06_basin.txt"), read_csv("conterm_lc06_rip800.txt"), by = "STAID") %>% 
   filter(STAID %in% sitenos)
 
-Topography <- read_csv("GAGESII_topo.csv") %>%
+Topography <- read_csv("conterm_topo.txt") %>%
   filter(STAID %in% sitenos)
 
-WSfactors <- full_join(read_csv("GAGESII_geology.csv"), read_csv("GAGESII_hydro.csv"), by = "STAID") %>%
-  full_join(read_csv("GAGESII_climate.csv"), by = "STAID") %>%
-  full_join(read_csv("GAGESII_basin.csv"), by = "STAID") %>%
+WSfactors <- full_join(read_csv("conterm_geology.txt"), read_csv("conterm_hydro.txt"), by = "STAID") %>%
+  full_join(read_csv("conterm_climate.txt"), by = "STAID") %>%
+  full_join(read_csv("conterm_basinid.txt"), by = "STAID") %>%
   filter(STAID %in% sitenos)
 ```

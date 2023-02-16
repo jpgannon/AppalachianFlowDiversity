@@ -51,9 +51,11 @@ Taken from GAGES-II, intersected with physiographic region in ArcGIS.
 ```{r}
 setwd("C:/Users/lfink/Desktop/Hydro Research 2022 2023/Exports")
 
-AppGages <- st_read("AppalachianGauges_Filtered.shp")
+AppGages <- st_read("AppGauges_Filtered.shp")
   
 AppRegions <- st_read("AppalachianRegions.shp")
+
+AppGagesdf <- as.data.frame(AppGages)
 ```
 
 ## Filter to HCDN-2009 gages.
@@ -74,7 +76,9 @@ AppRegions <- st_read("AppalachianRegions.shp")
     Science Center evaluators.
 
 ```{r}
-AppGages <- AppGages %>% filter(HCDN_2009 == "yes") %>% filter(PROVINCE != "NEW ENGLAND" & PROVINCE != "ADIRONDACK" & SECTION != "SOUTHERN NEW YORK" & SECTION != "CATSKILL")
+AppGages <- AppGages %>% 
+  filter(HCDN_2009 == "yes") %>% 
+  filter(PROVINCE != "NEW ENGLAND" & PROVINCE != "ADIRONDACK" & SECTION != "SOUTHERN NEW YORK" & SECTION != "CATSKILL")
 
 ```
 
