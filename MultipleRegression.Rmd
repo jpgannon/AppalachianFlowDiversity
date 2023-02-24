@@ -24,27 +24,103 @@ head(forMR)
 ```
 
 ```{r}
-names(forMR)
+WSfactorsLarge <- read_csv("WSfactorsLarge.csv")
 
-#using AIC instead of R2
-simple1 <- step(
-  lm(data=forMR, forMR[[9]]~slope_fdc+TOPWET+DRAIN_SQKM),
-  direction = "both")
-summary(simple1)
+lmBFIvsTWI <- lm(BFI_AVE ~ TOPWET, data = WSfactorsLarge)
+testLM <- summary(lmBFIvsTWI)
 
-for (i in 6:106) {
-  factors <- names(forMR)[i]
-  modelboth <- try(step(
-    lm(data = forMR, forMR[[i]]~forMR[[5]]+forMR[[7]] + forMR[[8]] + forMR[[10]]),
-    direction = "both"))
-  try({
-    ID.column <- rep(factors, length(modelboth$coefficients))
-    data.both <- data.frame(modelboth)
-    data.both <- cbind(ID.column, data.both)
-    data.both <- rbind(data.new, data.both)
-    data.new <- cbind(factors)
-  })
+lmBFIvsCLAY <- lm(BFI_AVE ~ CLAYAVE, data = WSfactorsLarge)
+summary(lmBFIvsCLAY)
+
+lmBFIvsSAND <- lm(BFI_AVE ~ SANDAVE, data = WSfactorsLarge)
+summary(lmBFIvsSAND)
+
+lmBFIvsDEPTH <- lm(BFI_AVE ~ ROCKDEPAVE, data = WSfactorsLarge)
+summary(lmBFIvsDEPTH)
+
+lmBFIvsAWC <- lm(BFI_AVE ~ AWCAVE, data = WSfactorsLarge)
+summary(lmBFIvsAWC)
+
+lmBFIvsPERM <- lm(BFI_AVE ~ PERMAVE, data = WSfactorsLarge)
+summary(lmBFIvsPERM)
+
+
+lm_eqn <- function(y, x){
+    m <- lm(y ~ x, WSfactorsLarge);
+    eq <- substitute(italic(y) == a + b %.% italic(x)*","~~italic(r)^2~"="~r2*","~~italic("p")~"="~p, 
+         list(a = format(unname(coef(m)[1]), digits = 2),
+              b = format(unname(coef(m)[2]), digits = 2),
+             r2 = format(summary(m)$r.squared, digits = 3),
+             p = format(summary(m)$coefficients[8], digits = 3)))
+    as.character(as.expression(eq));
 }
 
+lm_eqn(WSfactorsLarge$BFI_AVE, WSfactorsLarge$TOPWET)
+
+```
+
+### using my bestie ChatGPT <3
+```{r}
+# Define a list of watershed characteristics to use as predictor variables
+predictors_list <- forMR %>%
+  dplyr::select(-STAID, -SECTION, -DIVISION, -PROVINCE, -STANAME, -STATE, -X26, -GEOL_HUNT_DOM_DESC, -GEOL_REEDBUSH_DOM, -GEOL_REEDBUSH_DOM_PCT, -PERDUN, -PERHOR, MAINSTEM_SINUOUSITY, -CONTACT, -RUNAVE7100, -PPTAVG_BASIN, -T_AVG_BASIN, -PET, -LAT_GAGE, -LNG_GAGE, -geometry, -RRMEAN, -RRMEDIAN, -Flashiness, -Mean, -NinetiethP, -TenthP, -gauge_id, -stream_elas, -BFI_AVE, -geol_1st_class, -geol_2nd_class)
+
+predictors_list <- as.list.data.frame(predictors_list)
+
+#Create an empty data frame to store model results
+model_results <- data.frame()
+
+BFI <- forMR$BFI_AVE
+
+# Check for missing and infinite values in the data
+any(is.na(predictors_list))
+#any(is.infinite(predictors_list))
+
+# Specify a subset of predictor variables to use in the model
+predictors <- c(predictors_list$TOPWET, predictors_list$MAINSTEM_SINUOUSITY, predictors_list$HGC, predictors_list$HGVAR, predictors_list$HGVAR)
+
+# Fit a linear regression model with the selected predictors
+my_model <- lm(BFI ~ ., data = predictors_list)
+
+# Check if the model is overfitting using cross-validation
+library(caret)
+set.seed(123)
+cv <- trainControl(method = "cv", number = 10)
+cv_results <- train(BFI ~ ., data = predictors_list, method = "lm", trControl = cv)
+cv_results$results
+
+# Fit a stepwise regression model with the selected predictors
+my_step_model <- step(lm(BFI ~ ., data = predictors_list), direction = "both")
+
+# Print the model summary
+summary(my_step_model)
+
+
+# parameters clean, give to function cor(), give to data frame to get matrix, take out related above .7, iterative and keep going until you don't want to anymore 
+
+```
+for loop mess
+```{r}
+
+# Loop through all possible combinations of predictor variables
+# for (i in 1:length(predictors_list)) {
+#   for (j in i:length(predictors_list)) {
+#     predictors <- predictors_list[i:j]
+#     formula_str <- paste(BFI, paste(predictors, collapse = " + "))
+# 
+#     # Fit a multiple regression model with the current set of predictor variables
+#     my_model <- lm(formula_str, data = forMR)
+# 
+#     # Add the model results to the data frame
+#     model_results <- rbind(model_results,
+#                            data.frame(Predictors = paste(predictors, collapse = ", "),
+#                                       R_Squared = summary(my_model)$r.squared,
+#                                       Adj_R_Squared = summary(my_model)$adj.r.squared))
+#   }
+# }
+
+# Print the results sorted by adjusted R-squared
+# model_results <- model_results[order(model_results$Adj_R_Squared, decreasing = TRUE),]
+# print(model_results)
 ```
 

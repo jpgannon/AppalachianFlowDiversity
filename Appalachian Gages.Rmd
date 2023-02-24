@@ -77,8 +77,8 @@ AppGagesdf <- as.data.frame(AppGages)
 
 ```{r}
 AppGages <- AppGages %>% 
-  filter(HCDN_2009 == "yes") %>% 
-  filter(PROVINCE != "NEW ENGLAND" & PROVINCE != "ADIRONDACK" & SECTION != "SOUTHERN NEW YORK" & SECTION != "CATSKILL")
+  dplyr::filter(HCDN_2009 == "yes") %>% 
+  dplyr::filter(PROVINCE != "NEW ENGLAND" & PROVINCE != "ADIRONDACK" & SECTION != "SOUTHERN NEW YORK" & SECTION != "CATSKILL")
 
 ```
 
@@ -121,7 +121,7 @@ availableData <- whatNWISdata(siteNumber = sitenos, parameterCd = "00060")
 
 AppGages <- full_join(AppGages, availableData, by = c("STAID" = "site_no"))
 
-AppGages <- AppGages %>% filter(data_type_cd == "dv", stat_cd == "00003")
+AppGages <- AppGages %>% dplyr::filter(data_type_cd == "dv", stat_cd == "00003")
 
 ```
 
