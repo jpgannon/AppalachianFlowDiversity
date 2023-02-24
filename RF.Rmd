@@ -12,6 +12,8 @@ library(caret)        # an aggregator package for performing many machine learni
 library(RColorBrewer)
 library(corrplot)
 
+theme_set(theme_classic())
+
 ```
 
 ###Prep data
@@ -21,9 +23,11 @@ paramTypes <- read_csv("WSfactorsLarge.csv")
 
 #stats
 forRF <- paramTypes %>%
-  select(-STAID, -SECTION, -DIVISION, -PROVINCE, -STANAME, -STATE, -X26, -GEOL_HUNT_DOM_DESC, -GEOL_REEDBUSH_DOM, -GEOL_REEDBUSH_DOM_PCT)
+  dplyr::select(-STAID, -SECTION, -DIVISION, -PROVINCE, -STANAME, -STATE, -X26, -GEOL_HUNT_DOM_DESC, -GEOL_REEDBUSH_DOM, -GEOL_REEDBUSH_DOM_PCT, -PERDUN, -PERHOR, MAINSTEM_SINUOUSITY, -CONTACT, -RUNAVE7100, -PPTAVG_BASIN, -T_AVG_BASIN, -PET, -LAT_GAGE, -LNG_GAGE, -geometry, -RRMEAN, -RRMEDIAN, -Flashiness, -Mean, -NinetiethP, -TenthP, -gauge_id, -stream_elas) %>%
+  drop_na()
 
-# should i add RBI...
+#file_path <- "param_key.txt"
+#writeLines(paste(param_titles, collapse = "\n"), file_path)
 
 forRF <- forRF %>%
   slice_tail(n = 80)
@@ -52,7 +56,7 @@ for(i in 1:nrow(hyper_grid)) {
   
   # train model
   model <- ranger(
-    formula         = IQR ~ ., #RBI is what you're trying to predict 
+    formula         = BFI_AVE ~ ., #RBI is what you're trying to predict 
     data            = forRF, #for RF is all the other parameters
     num.trees       = 500,
     mtry            = hyper_grid$mtry[i],
@@ -77,7 +81,7 @@ OOB_RMSE <- vector(mode = "numeric", length = 100)
 for(i in seq_along(OOB_RMSE)) {
 
   optimal_ranger <- ranger(
-    formula         = RBI ~ ., 
+    formula         = BFI_AVE ~ ., 
     data            = forRF, 
     num.trees       = 500,
     mtry            = 7, #was 26
@@ -100,19 +104,34 @@ importancesAll <- optimal_ranger$variable.importance %>%
       rename(importance = value, param = '...2') %>%
       mutate(KGC = "All")
 
-RF_import_ALL_noCORR <- optimal_ranger$variable.importance %>% 
-  tidy() %>%
-  left_join(paramTypes, by = c("names" = "Params")) %>%
-  dplyr::arrange(desc(x)) %>%
- # dplyr::top_n(25) %>%
-  ggplot(aes(reorder(names, x), x, fill = Type)) +
-  geom_col() +
-  coord_flip()+
-  scale_fill_brewer(palette="Set1")+
-  theme_minimal()+
-  xlab("Predictors")+
-  ylab("Importance")
+ggplot(importancesAll, aes(x = reorder(param, importance), y = importance)) +
+  geom_bar(stat = "identity", fill = "blue") +
+  xlab("Watershed Characteristic") +
+  ylab("Importance Score") +
+  ggtitle("Variable Importance in Random Forest Model for Streamflow Prediction")
+
+topImportance <- importancesAll %>%
+  filter(importance > 70)
   
-RF_import_ALL_noCORR
+topImportance %>%
+  ggplot(aes(x = reorder(param,importance),  y = importance)) +
+  geom_bar(stat = "identity", fill = "purple") +
+  xlab("Watershed Characteristic") +
+  ylab("Importance Score")
+
+# RF_import_ALL_noCORR <- optimal_ranger$variable.importance %>%
+#  tidy() %>%
+#  #left_join(paramTypes, by = c("names" = "Params")) %>%
+#  dplyr::arrange(desc(x)) %>%
+# # dplyr::top_n(25) %>%
+#  ggplot(aes(reorder(names, x), x, fill = Type)) +
+#  geom_col() +
+#  coord_flip()+
+#  scale_fill_brewer(palette="Set1")+
+#  theme_minimal()+
+#  xlab("Predictors")+
+#  ylab("Importance")
+#  
+#RF_import_ALL_noCORR
 ```
 
