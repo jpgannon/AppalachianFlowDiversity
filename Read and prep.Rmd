@@ -64,9 +64,9 @@ AppGagesSlim <- AppGagesSlim %>%
 Baseflow
 
 ```{r}
-write.csv(QdatBaseflow, "QdatBaseflow.csv")
-
-QdatBaseflow <- read_csv("QdatBaseflow.csv")
+# write.csv(QdatBaseflow, "QdatBaseflow.csv")
+# 
+# QdatBaseflow <- read_csv("QdatBaseflow.csv")
 ```
 
 Watershed characteristics

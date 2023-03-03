@@ -6,6 +6,7 @@ library(tidyverse)
 # install.packages("olsrr")
 library(olsrr)
 library(ggplot2)
+library(Hmisc)
 
 ```
 
@@ -22,6 +23,16 @@ head(forMR)
 #join data into one table
 # df <- left_join(stats, attributes, by = c("site_no"="STAID"))
 ```
+###Correlation matrix
+```{r}
+
+
+MRpredict <- rcorr(as.matrix.data.frame(forMR))
+
+```
+
+
+
 
 ```{r}
 WSfactorsLarge <- read_csv("WSfactorsLarge.csv")

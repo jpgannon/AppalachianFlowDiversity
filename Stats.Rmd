@@ -210,6 +210,9 @@ FlashinessMean <- FlashinessAnnual %>% group_by(site_no) %>%
 
 #join to attributes
 FlashinessMean <- inner_join(FlashinessMean, AppGagesSlim, by = c("site_no" = "STAID"))
+
+write_csv(FlashinessMean, "FlashinessMean.csv")
+write_csv(FlashinessAnnual, "FlashinessAnnual.csv")
 ```
 
 Flashiness statistical significance

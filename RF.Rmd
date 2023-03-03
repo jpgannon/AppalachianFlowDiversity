@@ -1,4 +1,4 @@
-### Random forest.. i have no idea what I'm doing yet
+### Random forest
 
 
 ### Load libraries
@@ -11,6 +11,20 @@ library(caret)        # an aggregator package for performing many machine learni
 #library(h2o)          # an extremely fast java-based platform
 library(RColorBrewer)
 library(corrplot)
+library(sf)
+library(tmap)
+library(spData)
+library(repr)
+library(zoo)
+library(lubridate)
+library(moments)
+#install.packages("ContDataQC")
+#library(ContDataQC)
+library(broom)
+library(AICcmodavg)
+library(raster)
+library(rgdal)
+library(viridis)
 
 theme_set(theme_classic())
 
@@ -20,23 +34,25 @@ theme_set(theme_classic())
 ```{r}
 stats_attr <- read_csv("QdvStats.csv")
 paramTypes <- read_csv("WSfactorsLarge.csv")
+RBItable <- read_csv("FlashinessMean.csv")
 
-#stats
-forRF <- paramTypes %>%
-  dplyr::select(-STAID, -SECTION, -DIVISION, -PROVINCE, -STANAME, -STATE, -X26, -GEOL_HUNT_DOM_DESC, -GEOL_REEDBUSH_DOM, -GEOL_REEDBUSH_DOM_PCT, -PERDUN, -PERHOR, MAINSTEM_SINUOUSITY, -CONTACT, -RUNAVE7100, -PPTAVG_BASIN, -T_AVG_BASIN, -PET, -LAT_GAGE, -LNG_GAGE, -geometry, -RRMEAN, -RRMEDIAN, -Flashiness, -Mean, -NinetiethP, -TenthP, -gauge_id, -stream_elas) %>%
+RBItable <- RBItable %>%
+  dplyr::select(Flashiness, site_no) 
+
+RFpredictors <- merge(paramTypes, RBItable, by.x = 'STAID', by.y = 'site_no')
+
+#Remove stats, character obs
+forRF <- RFpredictors %>%
+  dplyr::select( -SECTION, -DIVISION, -PROVINCE, -STANAME, -STATE, -X26, -GEOL_HUNT_DOM_DESC, -GEOL_REEDBUSH_DOM, -GEOL_REEDBUSH_DOM_PCT, -PERDUN, -PERHOR, MAINSTEM_SINUOUSITY, -CONTACT, -RUNAVE7100, -PPTAVG_BASIN, -T_AVG_BASIN, -PET, -LAT_GAGE, -LNG_GAGE, -geometry, -RRMEAN, -RRMEDIAN, -Flashiness.y, -Mean, -NinetiethP, -TenthP, -gauge_id, -stream_elas, -STAID, -Flashiness.x) %>%
   drop_na()
 
-#file_path <- "param_key.txt"
-#writeLines(paste(param_titles, collapse = "\n"), file_path)
-
+#clean observations, need square for hypergrid
 forRF <- forRF %>%
   slice_tail(n = 80)
 
 ```
 
-### Train model
-
-# having trouble with mtry's and the hyper grid notion
+### Train model, Running for BFI
 ```{r}
 # hyperparameter grid search
 hyper_grid <- expand.grid(
@@ -56,7 +72,7 @@ for(i in 1:nrow(hyper_grid)) {
   
   # train model
   model <- ranger(
-    formula         = BFI_AVE ~ ., #RBI is what you're trying to predict 
+    formula         = BFI_AVE ~ ., #BFI is what you're trying to predict 
     data            = forRF, #for RF is all the other parameters
     num.trees       = 500,
     mtry            = hyper_grid$mtry[i],
@@ -70,11 +86,11 @@ for(i in 1:nrow(hyper_grid)) {
 }
 
 hyper_grid %>% 
-  dplyr::arrange(OOB_RMSE) %>%
-  head(10)
+  dplyr::arrange(OOB_RMSE)
 
 ```
 
+#Graphs for BFI
 ```{r}
 OOB_RMSE <- vector(mode = "numeric", length = 100)
 
@@ -98,26 +114,11 @@ hist(OOB_RMSE, breaks = 20)
 
 ```{r}
 #for perKGC plot
-importancesAll <- optimal_ranger$variable.importance %>% 
+BFI_importancesAll <- optimal_ranger$variable.importance %>% 
       as_tibble() %>% 
       bind_cols(names(optimal_ranger$variable.importance)) %>%
       rename(importance = value, param = '...2') %>%
       mutate(KGC = "All")
-
-ggplot(importancesAll, aes(x = reorder(param, importance), y = importance)) +
-  geom_bar(stat = "identity", fill = "blue") +
-  xlab("Watershed Characteristic") +
-  ylab("Importance Score") +
-  ggtitle("Variable Importance in Random Forest Model for Streamflow Prediction")
-
-topImportance <- importancesAll %>%
-  filter(importance > 70)
-  
-topImportance %>%
-  ggplot(aes(x = reorder(param,importance),  y = importance)) +
-  geom_bar(stat = "identity", fill = "purple") +
-  xlab("Watershed Characteristic") +
-  ylab("Importance Score")
 
 # RF_import_ALL_noCORR <- optimal_ranger$variable.importance %>%
 #  tidy() %>%
@@ -133,5 +134,298 @@ topImportance %>%
 #  ylab("Importance")
 #  
 #RF_import_ALL_noCORR
+
+BFI_importancesAll %>%
+  filter(importance >= 72) %>%
+  ggplot(aes(x = param, y = importance)) +
+  geom_bar(stat = "identity")
+
+```
+
+### Using BFI for high flow
+```{r}
+forRF <- merge(paramTypes, RBItable, by.x = 'STAID', by.y = 'site_no')
+
+#Remove stats, character obs
+forRF <- paramTypes %>%
+  dplyr::select(-STAID, -SECTION, -DIVISION, -PROVINCE, -STANAME, -STATE, -X26, -GEOL_HUNT_DOM_DESC, -GEOL_REEDBUSH_DOM, -GEOL_REEDBUSH_DOM_PCT, -PERDUN, -PERHOR, MAINSTEM_SINUOUSITY, -CONTACT, -RUNAVE7100, -PPTAVG_BASIN, -T_AVG_BASIN, -PET, -LAT_GAGE, -LNG_GAGE, -geometry, -RRMEAN, -RRMEDIAN, -BFI_AVE, -Mean, -NinetiethP, -TenthP, -gauge_id, -stream_elas) %>%
+  drop_na()
+
+#clean observations, need square for hypergrid
+forRF <- forRF %>%
+  slice_tail(n = 80)
+
+# hyperparameter grid search
+hyper_grid <- expand.grid(
+  #mtry       = seq(20, 30, by = 2), #mtry should be square of available params (35)
+  mtry       = seq(3,7, by = 1),
+  node_size  = seq(2,9, by = 2),
+  sampe_size = c(.55, .632, .70, .80),
+  OOB_RMSE   = 0
+)
+
+# total number of combinations
+nrow(hyper_grid)
+## [1] (need) 87
+
+
+for(i in 1:nrow(hyper_grid)) {
+  
+  # train model
+  model <- ranger(
+    formula         = Flashiness ~ ., #BFI is what you're trying to predict 
+    data            = forRF, #for RF is all the other parameters
+    num.trees       = 500,
+    mtry            = hyper_grid$mtry[i],
+    min.node.size   = hyper_grid$node_size[i],
+    sample.fraction = hyper_grid$sampe_size[i],
+    seed            = 123
+  )
+  
+  # add OOB error to grid
+  hyper_grid$OOB_RMSE[i] <- sqrt(model$prediction.error)
+}
+
+hyper_grid %>% 
+  dplyr::arrange(OOB_RMSE)
+
+OOB_RMSE <- vector(mode = "numeric", length = 100)
+
+for(i in seq_along(OOB_RMSE)) {
+
+  optimal_ranger <- ranger(
+    formula         = Flashiness ~ ., 
+    data            = forRF, 
+    num.trees       = 500,
+    mtry            = 7, #was 26
+    min.node.size   = 7, #was 5
+    sample.fraction = .8,
+    importance      = 'impurity'
+  )
+  
+  OOB_RMSE[i] <- sqrt(optimal_ranger$prediction.error)
+}
+
+RBI_importancesAll <- optimal_ranger$variable.importance %>% 
+      as_tibble() %>% 
+      bind_cols(names(optimal_ranger$variable.importance)) %>%
+      rename(importance = value, param = '...2') %>%
+      mutate(KGC = "All")
+
+RBI_importancesAll_short <- RBI_importancesAll %>%
+  filter(importance >= 0.004218211) %>%
+  ggplot(aes(x = param, y = importance)) +
+  geom_bar(stat = "identity")
+
+RBI_importancesAll_short
+
+```
+
+###Mean flow
+```{r}
+#Remove stats, character obs
+forRF <- paramTypes %>%
+  dplyr::select(-STAID, -SECTION, -DIVISION, -PROVINCE, -STANAME, -STATE, -X26, -GEOL_HUNT_DOM_DESC, -GEOL_REEDBUSH_DOM, -GEOL_REEDBUSH_DOM_PCT, -PERDUN, -PERHOR, MAINSTEM_SINUOUSITY, -CONTACT, -RUNAVE7100, -PPTAVG_BASIN, -T_AVG_BASIN, -PET, -LAT_GAGE, -LNG_GAGE, -geometry, -RRMEAN, -RRMEDIAN, -BFI_AVE, -Flashiness, -NinetiethP, -TenthP, -gauge_id, -stream_elas) %>%
+  drop_na()
+
+#clean observations, need square for hypergrid
+forRF <- forRF %>%
+  slice_tail(n = 80)
+
+# hyperparameter grid search
+hyper_grid <- expand.grid(
+  #mtry       = seq(20, 30, by = 2), #mtry should be square of available params (35)
+  mtry       = seq(3,7, by = 1),
+  node_size  = seq(2,9, by = 2),
+  sampe_size = c(.55, .632, .70, .80),
+  OOB_RMSE   = 0
+)
+
+# total number of combinations
+nrow(hyper_grid)
+## [1] (need) 87
+
+
+for(i in 1:nrow(hyper_grid)) {
+  
+  # train model
+  model <- ranger(
+    formula         = Mean ~ ., #BFI is what you're trying to predict 
+    data            = forRF, #for RF is all the other parameters
+    num.trees       = 500,
+    mtry            = hyper_grid$mtry[i],
+    min.node.size   = hyper_grid$node_size[i],
+    sample.fraction = hyper_grid$sampe_size[i],
+    seed            = 123
+  )
+  
+  # add OOB error to grid
+  hyper_grid$OOB_RMSE[i] <- sqrt(model$prediction.error)
+}
+
+hyper_grid %>% 
+  dplyr::arrange(OOB_RMSE)
+
+OOB_RMSE <- vector(mode = "numeric", length = 100)
+
+for(i in seq_along(OOB_RMSE)) {
+
+  optimal_ranger <- ranger(
+    formula         = Mean ~ ., 
+    data            = forRF, 
+    num.trees       = 500,
+    mtry            = 7, #was 26
+    min.node.size   = 7, #was 5
+    sample.fraction = .8,
+    importance      = 'impurity'
+  )
+  
+  OOB_RMSE[i] <- sqrt(optimal_ranger$prediction.error)
+}
+
+Mean_importancesAll <- optimal_ranger$variable.importance %>% 
+      as_tibble() %>% 
+      bind_cols(names(optimal_ranger$variable.importance)) %>%
+      rename(importance = value, param = '...2') %>%
+      mutate(KGC = "All")
+
+
+```
+
+### TenthP for low flow
+```{r}
+#Remove stats, character obs
+forRF <- paramTypes %>%
+  dplyr::select(-STAID, -SECTION, -DIVISION, -PROVINCE, -STANAME, -STATE, -X26, -GEOL_HUNT_DOM_DESC, -GEOL_REEDBUSH_DOM, -GEOL_REEDBUSH_DOM_PCT, -PERDUN, -PERHOR, MAINSTEM_SINUOUSITY, -CONTACT, -RUNAVE7100, -PPTAVG_BASIN, -T_AVG_BASIN, -PET, -LAT_GAGE, -LNG_GAGE, -geometry, -RRMEAN, -RRMEDIAN, -BFI_AVE, -Flashiness, -NinetiethP, -gauge_id, -stream_elas, -Mean) %>%
+  drop_na()
+
+#clean observations, need square for hypergrid
+forRF <- forRF %>%
+  slice_tail(n = 80)
+
+# hyperparameter grid search
+hyper_grid <- expand.grid(
+  #mtry       = seq(20, 30, by = 2), #mtry should be square of available params (35)
+  mtry       = seq(3,7, by = 1),
+  node_size  = seq(2,9, by = 2),
+  sampe_size = c(.55, .632, .70, .80),
+  OOB_RMSE   = 0
+)
+
+# total number of combinations
+nrow(hyper_grid)
+## [1] (need) 87
+
+
+for(i in 1:nrow(hyper_grid)) {
+  
+  # train model
+  model <- ranger(
+    formula         = TenthP ~ ., #BFI is what you're trying to predict 
+    data            = forRF, #for RF is all the other parameters
+    num.trees       = 500,
+    mtry            = hyper_grid$mtry[i],
+    min.node.size   = hyper_grid$node_size[i],
+    sample.fraction = hyper_grid$sampe_size[i],
+    seed            = 123
+  )
+  
+  # add OOB error to grid
+  hyper_grid$OOB_RMSE[i] <- sqrt(model$prediction.error)
+}
+
+hyper_grid %>% 
+  dplyr::arrange(OOB_RMSE)
+
+OOB_RMSE <- vector(mode = "numeric", length = 100)
+
+for(i in seq_along(OOB_RMSE)) {
+
+  optimal_ranger <- ranger(
+    formula         = TenthP ~ ., 
+    data            = forRF, 
+    num.trees       = 500,
+    mtry            = 7, #was 26
+    min.node.size   = 7, #was 5
+    sample.fraction = .8,
+    importance      = 'impurity'
+  )
+  
+  OOB_RMSE[i] <- sqrt(optimal_ranger$prediction.error)
+}
+
+TenthP_importancesAll <- optimal_ranger$variable.importance %>% 
+      as_tibble() %>% 
+      bind_cols(names(optimal_ranger$variable.importance)) %>%
+      rename(importance = value, param = '...2') %>%
+      mutate(KGC = "All")
+
+TenthP_importancesAll_plot <- TenthP_importancesAll %>%
+  filter(importance >= 0.065) %>%
+  ggplot(aes(x = param, y = importance)) +
+  geom_bar(stat = "identity")
+
+TenthP_importancesAll_plot
+
+```
+
+### Mapping our indices 
+```{r}
+AppGages <- st_read("Exports/AppGauges_Filtered.shp", stringsAsFactors = FALSE)
+AppRegions <- st_read("Exports/AppalachianRegions.shp", stringsAsFactors = FALSE)
+
+#join AppGages to Paramtypes shp
+AppGages_df <- AppGages %>%
+  as_data_frame()
+
+gages_join <- left_join(paramTypes, AppGages_df, by = "STAID")
+
+AppGages_RF <- gages_join %>%
+  st_as_sf()
+
+ProvinceMap <- tm_shape(AppRegions)+
+  tm_polygons(col = "PROVINCE", palette = "Spectral")+
+  tm_layout(legend.outside = TRUE)+
+tm_shape(AppGages_RF)+
+  tm_dots()+
+tm_shape(us_states)+
+  tm_borders()
+
+ProvinceMap
+
+ggsave(plot = BFIMap, filename = "GagesForRFMapRegions.pdf")
+
+# Create the plot using ggplot2
+#don't know if virdis works with tm
+BFI <- tm_shape(AppRegions) +
+  tm_fill("lightgrey")+
+  tm_shape(AppGages_RF) +
+  tm_dots(col = "BFI_AVE", palette = "viridis", size = 0.1) +
+  tm_layout(legend.outside = TRUE) +
+  tm_shape(us_states) +
+  tm_borders()
+
+BFI
+
+Flash <- tm_shape(AppRegions) +
+  tm_fill("lightgrey")+
+  tm_shape(AppGages_RF) +
+  tm_dots(col = "Flashiness", palette = "virdis", size = 0.1) +
+  tm_layout(legend.outside = TRUE) +
+  tm_shape(us_states) +
+  tm_borders()
+
+Flash
+
+TenthP <- tm_shape(AppRegions) +
+  tm_fill("lightgrey")+
+  tm_shape(AppGages_RF) +
+  tm_dots(col = "TenthP", palette = "-viridis", size = 0.1) +
+  tm_layout(legend.outside = TRUE) +
+  tm_shape(us_states) +
+  tm_borders()
+
+TenthP
+
 ```
 

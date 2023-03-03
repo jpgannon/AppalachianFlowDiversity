@@ -141,15 +141,17 @@ timeline
 1981-2010: NWS normal period
 
 ```{r}
-endLoss <- AppGages %>% filter(end_date <= "2010-12-31")
+endLoss <- AppGages %>% dplyr::filter(end_date <= "2010-12-31")
 
-startLoss <- AppGages %>% filter(begin_date >= "1981-12-31")
+startLoss <- AppGages %>% dplyr::filter(begin_date >= "1981-12-31")
 
 SectionMap+
   tm_shape(startLoss)+
    tm_symbols(size = 0.2, col = "red")
   #tm_shape(endLoss)+
     #tm_symbols(size = 0.2, col = "red")
+
+conflict_prefer("filter", "dplyr")
 
 AppGages <- AppGages %>% filter(begin_date <= "1981-01-01" & end_date >= "2010-12-31")
 ```
