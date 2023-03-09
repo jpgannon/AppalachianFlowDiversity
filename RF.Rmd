@@ -43,16 +43,15 @@ RFpredictors <- merge(paramTypes, RBItable, by.x = 'STAID', by.y = 'site_no')
 
 #Remove stats, character obs
 forRF <- RFpredictors %>%
-  dplyr::select( -SECTION, -DIVISION, -PROVINCE, -STANAME, -STATE, -X26, -GEOL_HUNT_DOM_DESC, -GEOL_REEDBUSH_DOM, -GEOL_REEDBUSH_DOM_PCT, -PERDUN, -PERHOR, MAINSTEM_SINUOUSITY, -CONTACT, -RUNAVE7100, -PPTAVG_BASIN, -T_AVG_BASIN, -PET, -LAT_GAGE, -LNG_GAGE, -geometry, -RRMEAN, -RRMEDIAN, -Flashiness.y, -Mean, -NinetiethP, -TenthP, -gauge_id, -stream_elas, -STAID, -Flashiness.x) %>%
+  dplyr::select( -SECTION, -DIVISION, -PROVINCE, -STANAME, -STATE, -X26, -GEOL_HUNT_DOM_DESC, -GEOL_REEDBUSH_DOM, -GEOL_REEDBUSH_DOM_PCT, -PERDUN, -PERHOR, MAINSTEM_SINUOUSITY, -CONTACT, -RUNAVE7100, -PPTAVG_BASIN, -T_AVG_BASIN, -PET, -LAT_GAGE, -LNG_GAGE, -geometry, -RRMEAN, -RRMEDIAN, -Mean, -NinetiethP, -TenthP,  -gauge_id, -stream_elas, -STAID, -geol_1st_class, -geol_2nd_class, -HIRES_LENTIC_PCT, -LAT_CENT, -LONG_CENT, -Flashiness.y, -Flashiness.x) %>%
   drop_na()
 
 #clean observations, need square for hypergrid
 forRF <- forRF %>%
   slice_tail(n = 80)
-
 ```
 
-### Train model, Running for BFI
+### Train model, Running for BFI (low flow)
 ```{r}
 # hyperparameter grid search
 hyper_grid <- expand.grid(
@@ -90,7 +89,7 @@ hyper_grid %>%
 
 ```
 
-#Graphs for BFI
+#Hist for BFI
 ```{r}
 OOB_RMSE <- vector(mode = "numeric", length = 100)
 
@@ -118,23 +117,9 @@ BFI_importancesAll <- optimal_ranger$variable.importance %>%
       as_tibble() %>% 
       bind_cols(names(optimal_ranger$variable.importance)) %>%
       rename(importance = value, param = '...2') %>%
-      mutate(KGC = "All")
+      mutate(measure = "BFI")
 
-# RF_import_ALL_noCORR <- optimal_ranger$variable.importance %>%
-#  tidy() %>%
-#  #left_join(paramTypes, by = c("names" = "Params")) %>%
-#  dplyr::arrange(desc(x)) %>%
-# # dplyr::top_n(25) %>%
-#  ggplot(aes(reorder(names, x), x, fill = Type)) +
-#  geom_col() +
-#  coord_flip()+
-#  scale_fill_brewer(palette="Set1")+
-#  theme_minimal()+
-#  xlab("Predictors")+
-#  ylab("Importance")
-#  
-#RF_import_ALL_noCORR
-
+#prelim, top variables
 BFI_importancesAll %>%
   filter(importance >= 72) %>%
   ggplot(aes(x = param, y = importance)) +
@@ -142,13 +127,13 @@ BFI_importancesAll %>%
 
 ```
 
-### Using BFI for high flow
+### Using flashiness (RBI) for high flow
 ```{r}
 forRF <- merge(paramTypes, RBItable, by.x = 'STAID', by.y = 'site_no')
 
 #Remove stats, character obs
 forRF <- paramTypes %>%
-  dplyr::select(-STAID, -SECTION, -DIVISION, -PROVINCE, -STANAME, -STATE, -X26, -GEOL_HUNT_DOM_DESC, -GEOL_REEDBUSH_DOM, -GEOL_REEDBUSH_DOM_PCT, -PERDUN, -PERHOR, MAINSTEM_SINUOUSITY, -CONTACT, -RUNAVE7100, -PPTAVG_BASIN, -T_AVG_BASIN, -PET, -LAT_GAGE, -LNG_GAGE, -geometry, -RRMEAN, -RRMEDIAN, -BFI_AVE, -Mean, -NinetiethP, -TenthP, -gauge_id, -stream_elas) %>%
+  dplyr::select( -SECTION, -DIVISION, -PROVINCE, -STANAME, -STATE, -X26, -GEOL_HUNT_DOM_DESC, -GEOL_REEDBUSH_DOM, -GEOL_REEDBUSH_DOM_PCT, -PERDUN, -PERHOR, MAINSTEM_SINUOUSITY, -CONTACT, -RUNAVE7100, -PPTAVG_BASIN, -T_AVG_BASIN, -PET, -LAT_GAGE, -LNG_GAGE, -geometry, -RRMEAN, -RRMEDIAN, -Mean, -NinetiethP, -TenthP, -gauge_id, -stream_elas, -STAID, -BFI_AVE, -geol_1st_class, -geol_2nd_class, -HIRES_LENTIC_PCT, -LAT_CENT, -LONG_CENT) %>%
   drop_na()
 
 #clean observations, need square for hypergrid
@@ -167,7 +152,6 @@ hyper_grid <- expand.grid(
 # total number of combinations
 nrow(hyper_grid)
 ## [1] (need) 87
-
 
 for(i in 1:nrow(hyper_grid)) {
   
@@ -210,7 +194,7 @@ RBI_importancesAll <- optimal_ranger$variable.importance %>%
       as_tibble() %>% 
       bind_cols(names(optimal_ranger$variable.importance)) %>%
       rename(importance = value, param = '...2') %>%
-      mutate(KGC = "All")
+      mutate(measure = "RBI")
 
 RBI_importancesAll_short <- RBI_importancesAll %>%
   filter(importance >= 0.004218211) %>%
@@ -221,11 +205,11 @@ RBI_importancesAll_short
 
 ```
 
-###Mean flow
+###Median Flow - NinetiethP
 ```{r}
 #Remove stats, character obs
 forRF <- paramTypes %>%
-  dplyr::select(-STAID, -SECTION, -DIVISION, -PROVINCE, -STANAME, -STATE, -X26, -GEOL_HUNT_DOM_DESC, -GEOL_REEDBUSH_DOM, -GEOL_REEDBUSH_DOM_PCT, -PERDUN, -PERHOR, MAINSTEM_SINUOUSITY, -CONTACT, -RUNAVE7100, -PPTAVG_BASIN, -T_AVG_BASIN, -PET, -LAT_GAGE, -LNG_GAGE, -geometry, -RRMEAN, -RRMEDIAN, -BFI_AVE, -Flashiness, -NinetiethP, -TenthP, -gauge_id, -stream_elas) %>%
+  dplyr::select( -SECTION, -DIVISION, -PROVINCE, -STANAME, -STATE, -X26, -GEOL_HUNT_DOM_DESC, -GEOL_REEDBUSH_DOM, -GEOL_REEDBUSH_DOM_PCT, -PERDUN, -PERHOR, MAINSTEM_SINUOUSITY, -CONTACT, -RUNAVE7100, -PPTAVG_BASIN, -T_AVG_BASIN, -PET, -LAT_GAGE, -LNG_GAGE, -geometry, -RRMEAN, -RRMEDIAN, -Flashiness, -Mean, -TenthP, -gauge_id, -stream_elas, -STAID, -geol_1st_class, -geol_2nd_class, -HIRES_LENTIC_PCT, -LAT_CENT, -LONG_CENT, -BFI_AVE) %>%
   drop_na()
 
 #clean observations, need square for hypergrid
@@ -250,7 +234,7 @@ for(i in 1:nrow(hyper_grid)) {
   
   # train model
   model <- ranger(
-    formula         = Mean ~ ., #BFI is what you're trying to predict 
+    formula         = NinetiethP ~ ., #BFI is what you're trying to predict 
     data            = forRF, #for RF is all the other parameters
     num.trees       = 500,
     mtry            = hyper_grid$mtry[i],
@@ -271,7 +255,7 @@ OOB_RMSE <- vector(mode = "numeric", length = 100)
 for(i in seq_along(OOB_RMSE)) {
 
   optimal_ranger <- ranger(
-    formula         = Mean ~ ., 
+    formula         = NinetiethP ~ ., 
     data            = forRF, 
     num.trees       = 500,
     mtry            = 7, #was 26
@@ -283,11 +267,11 @@ for(i in seq_along(OOB_RMSE)) {
   OOB_RMSE[i] <- sqrt(optimal_ranger$prediction.error)
 }
 
-Mean_importancesAll <- optimal_ranger$variable.importance %>% 
+NinetiethP_importancesAll <- optimal_ranger$variable.importance %>% 
       as_tibble() %>% 
       bind_cols(names(optimal_ranger$variable.importance)) %>%
       rename(importance = value, param = '...2') %>%
-      mutate(KGC = "All")
+      mutate(measure = "Ninetieth Percentile")
 
 
 ```
@@ -296,7 +280,7 @@ Mean_importancesAll <- optimal_ranger$variable.importance %>%
 ```{r}
 #Remove stats, character obs
 forRF <- paramTypes %>%
-  dplyr::select(-STAID, -SECTION, -DIVISION, -PROVINCE, -STANAME, -STATE, -X26, -GEOL_HUNT_DOM_DESC, -GEOL_REEDBUSH_DOM, -GEOL_REEDBUSH_DOM_PCT, -PERDUN, -PERHOR, MAINSTEM_SINUOUSITY, -CONTACT, -RUNAVE7100, -PPTAVG_BASIN, -T_AVG_BASIN, -PET, -LAT_GAGE, -LNG_GAGE, -geometry, -RRMEAN, -RRMEDIAN, -BFI_AVE, -Flashiness, -NinetiethP, -gauge_id, -stream_elas, -Mean) %>%
+  dplyr::select( -SECTION, -DIVISION, -PROVINCE, -STANAME, -STATE, -X26, -GEOL_HUNT_DOM_DESC, -GEOL_REEDBUSH_DOM, -GEOL_REEDBUSH_DOM_PCT, -PERDUN, -PERHOR, MAINSTEM_SINUOUSITY, -CONTACT, -RUNAVE7100, -PPTAVG_BASIN, -T_AVG_BASIN, -PET, -LAT_GAGE, -LNG_GAGE, -geometry, -RRMEAN, -RRMEDIAN, -Flashiness, -Mean, -NinetiethP, -BFI_AVE, -gauge_id, -stream_elas, -STAID, -geol_1st_class, -geol_2nd_class, -HIRES_LENTIC_PCT, -LAT_CENT, -LONG_CENT) %>%
   drop_na()
 
 #clean observations, need square for hypergrid
@@ -358,7 +342,7 @@ TenthP_importancesAll <- optimal_ranger$variable.importance %>%
       as_tibble() %>% 
       bind_cols(names(optimal_ranger$variable.importance)) %>%
       rename(importance = value, param = '...2') %>%
-      mutate(KGC = "All")
+      mutate(measure = "Tenth Percentile")
 
 TenthP_importancesAll_plot <- TenthP_importancesAll %>%
   filter(importance >= 0.065) %>%
@@ -393,39 +377,136 @@ tm_shape(us_states)+
 
 ProvinceMap
 
-ggsave(plot = BFIMap, filename = "GagesForRFMapRegions.pdf")
-
 # Create the plot using ggplot2
-#don't know if virdis works with tm
 BFI <- tm_shape(AppRegions) +
-  tm_fill("lightgrey")+
+  tm_fill("gray90")+
   tm_shape(AppGages_RF) +
-  tm_dots(col = "BFI_AVE", palette = "viridis", size = 0.1) +
-  tm_layout(legend.outside = TRUE) +
+  tm_dots(col = "BFI_AVE", palette = "-viridis", size = 0.1) +
+  tm_layout("BFI",
+          legend.title.size = 1,
+          legend.text.size = 0.6,
+          legend.position = c("right","bottom"),
+          legend.bg.color = "white",
+          legend.bg.alpha = 1) +
   tm_shape(us_states) +
   tm_borders()
 
 BFI
 
 Flash <- tm_shape(AppRegions) +
-  tm_fill("lightgrey")+
+  tm_fill("gray90")+
   tm_shape(AppGages_RF) +
-  tm_dots(col = "Flashiness", palette = "virdis", size = 0.1) +
-  tm_layout(legend.outside = TRUE) +
+  tm_dots(col = "Flashiness", palette = "-viridis", size = 0.1) +
+  tm_layout("Flashiness",
+          legend.title.size = 1,
+          legend.text.size = 0.6,
+          legend.position = c("right","bottom"),
+          legend.bg.color = "white",
+          legend.bg.alpha = 1) +
   tm_shape(us_states) +
   tm_borders()
 
 Flash
 
+library(patchwork)
+
 TenthP <- tm_shape(AppRegions) +
-  tm_fill("lightgrey")+
+  tm_fill("gray90")+
   tm_shape(AppGages_RF) +
   tm_dots(col = "TenthP", palette = "-viridis", size = 0.1) +
-  tm_layout(legend.outside = TRUE) +
+  tm_layout("TenthP Flow",
+          legend.title.size = 1,
+          legend.text.size = 0.6,
+          legend.position = c("right","bottom"),
+          legend.bg.color = "white",
+          legend.bg.alpha = 1) +
   tm_shape(us_states) +
   tm_borders()
 
 TenthP
 
+NinetiethP <- tm_shape(AppRegions) +
+  tm_fill("gray90")+
+  tm_shape(AppGages_RF) +
+  tm_dots(col = "NinetiethP", palette = "-viridis", size = 0.1) +
+  tm_layout("NinetiethP Flow",
+          legend.title.size = 1,
+          legend.text.size = 0.6,
+          legend.position = c("right","bottom"),
+          legend.bg.color = "white",
+          legend.bg.alpha = 1) +
+  tm_shape(us_states) +
+  tm_borders()
+
+NinetiethP
+
+Maps <- tmap_arrange(BFI, Flash, NinetiethP, TenthP, nrow = 2, ncol = 2)
+Maps
+
+tmap_save(Maps, "RFMaps.png")
+
+```
+
+###Importance plotting for variables and join to sub groups
+```{r}
+library(data.table)
+
+vartypes <- read_csv("VarTypes.csv")
+
+BFIbucket <- left_join(BFI_importancesAll, vartypes, by = "param") 
+
+BFIbucket <- BFIbucket %>%
+  rename(BFIimportance = importance) %>%
+  dplyr::select(BFIimportance, param, group)
+
+RBIbucket <- left_join(RBI_importancesAll, vartypes, by = "param") 
+
+RBIbucket <- RBIbucket %>%
+  rename(RBIimportance = importance) %>%
+  dplyr::select(RBIimportance, param, group)
+
+NPbucket <- left_join(NinetiethP_importancesAll, vartypes, by = "param")
+
+NPbucket <- NPbucket %>%
+  rename(NPimportance = importance) %>%
+  dplyr::select(NPimportance, param, group)
+
+TPbucket <- left_join(TenthP_importancesAll, vartypes, by = "param")
+
+TPbucket <- TPbucket %>%
+  rename(TPimportance = importance) %>%
+  dplyr::select(TPimportance, param, group)
+
+j1 <- merge(BFIbucket, RBIbucket, by = "param")
+
+j2 <- merge(j1, NPbucket, by = "param")
+
+importances_tble <- merge(j2, TPbucket, by = "param")
+
+importances_tble <- importances_tble %>%
+  dplyr::select(-group.y, -group.x, -group.y)
+
+importances_all <- left_join(importances_tble, vartypes, by = "param") 
+
+df <- pivot_longer(importances_all,
+                   cols = BFIimportance:TPimportance,
+                   names_to = "table",
+                   values_to = "value")
+
+importance_plot <- df %>%
+  group_by() %>%
+  ggplot(aes(x = table, y = value, fill = group)) +
+  geom_col(position = "fill") +
+  scale_y_continuous(labels = scales::percent) +
+  scale_fill_brewer(palette = "Set1") +
+  labs(x = "Hydrologic Measure",
+       y = "Importance from RF") +
+  coord_flip() +
+  scale_x_discrete(labels = c("Low flow", "Flashiness", "Median Flow", "Baseflow Index")) +
+  guides(fill=guide_legend(title="Parameter Group"))
+
+importance_plot
+
+ggsave("ImportancePlot.png", plot = importance_plot)
 ```
 
