@@ -6,11 +6,9 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 
-setwd("C:/Users/lfink/Desktop/Hydro Research 2022 2023/Exports")
-
 library(dataRetrieval)
 library(tidyverse)
-install.packages('conflicted')
+#install.packages('conflicted')
 library(conflicted)
 ```
 
@@ -74,19 +72,17 @@ Watershed characteristics
 ```{r}
 #All from GAGESII
 
-setwd("C:/Users/lfink/Desktop/Hydro Research 2022 2023/CAMELSII Data/Watershed characteristics")
-
-Soils <- read_csv("conterm_soils.txt") %>%
+Soils <- read_csv("Gages II Data/conterm_soils.txt") %>%
   filter(STAID %in% sitenos)
 
-Landcover <- full_join(read_csv("conterm_lc06_basin.txt"), read_csv("conterm_lc06_rip800.txt"), by = "STAID") %>% 
+Landcover <- full_join(read_csv("Gages II Data/conterm_lc06_basin.txt"), read_csv("Gages II Data/conterm_lc06_rip800.txt"), by = "STAID") %>% 
   filter(STAID %in% sitenos)
 
-Topography <- read_csv("conterm_topo.txt") %>%
+Topography <- read_csv("Gages II Data/conterm_topo.txt") %>%
   filter(STAID %in% sitenos)
 
-WSfactors <- full_join(read_csv("conterm_geology.txt"), read_csv("conterm_hydro.txt"), by = "STAID") %>%
-  full_join(read_csv("conterm_climate.txt"), by = "STAID") %>%
-  full_join(read_csv("conterm_basinid.txt"), by = "STAID") %>%
+WSfactors <- full_join(read_csv("Gages II Data/conterm_geology.txt"), read_csv("Gages II Data/conterm_hydro.txt"), by = "STAID") %>%
+  full_join(read_csv("Gages II Data/conterm_climate.txt"), by = "STAID") %>%
+  full_join(read_csv("Gages II Data/conterm_basinid.txt"), by = "STAID") %>%
   filter(STAID %in% sitenos)
 ```

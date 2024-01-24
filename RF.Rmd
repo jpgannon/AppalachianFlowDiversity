@@ -1,5 +1,9 @@
-### Random forest
-
+---
+title: "Appalachian Flow Diversity, Random Forest Model"
+author: "Lindsey Finks"
+date: "2023-11-28"
+output: html_notebook
+---
 
 ### Load libraries
 ```{r}
@@ -8,50 +12,54 @@ library(rsample)      # data splitting
 library(randomForest) # basic implementation
 library(ranger)       # a faster implementation of randomForest
 library(caret)        # an aggregator package for performing many machine learning models
-#library(h2o)          # an extremely fast java-based platform
 library(RColorBrewer)
 library(corrplot)
 library(sf)
 library(tmap)
 library(spData)
-library(repr)
 library(zoo)
 library(lubridate)
 library(moments)
-#install.packages("ContDataQC")
-#library(ContDataQC)
 library(broom)
 library(AICcmodavg)
 library(raster)
 library(rgdal)
 library(viridis)
 
+#Set theme for plotting
 theme_set(theme_classic())
 
 ```
+Load and prep data 
 
-###Prep data
 ```{r}
-stats_attr <- read_csv("QdvStats.csv")
-paramTypes <- read_csv("WSfactorsLarge.csv")
-RBItable <- read_csv("FlashinessMean.csv")
+#Watershed stats (from "Read and prep.RMD")
+stats_attr <- read_csv("Data/QdvStats.csv") #watershed stats
+paramTypes <- read_csv("Data/WSfactorsLarge.csv") #watershed characteristics
 
+RBItable <- read_csv("Data/FlashinessMean.csv") #RBI (flashiness) to join to main statistics table
+
+#grab mean annual flashiness from RBI data
 RBItable <- RBItable %>%
   dplyr::select(Flashiness, site_no) 
 
+#join all stats (stats_attr) and flashiness, create Predictors table for model
 RFpredictors <- merge(paramTypes, RBItable, by.x = 'STAID', by.y = 'site_no')
 
-#Remove stats, character obs
+#Remove stats from characteristics df, character type obs, geometries, etc.
 forRF <- RFpredictors %>%
-  dplyr::select( -SECTION, -DIVISION, -PROVINCE, -STANAME, -STATE, -X26, -GEOL_HUNT_DOM_DESC, -GEOL_REEDBUSH_DOM, -GEOL_REEDBUSH_DOM_PCT, -PERDUN, -PERHOR, MAINSTEM_SINUOUSITY, -CONTACT, -RUNAVE7100, -PPTAVG_BASIN, -T_AVG_BASIN, -PET, -LAT_GAGE, -LNG_GAGE, -geometry, -RRMEAN, -RRMEDIAN, -Mean, -NinetiethP, -TenthP,  -gauge_id, -stream_elas, -STAID, -geol_1st_class, -geol_2nd_class, -HIRES_LENTIC_PCT, -LAT_CENT, -LONG_CENT, -Flashiness.y, -Flashiness.x) %>%
+  dplyr::select( -SECTION, -DIVISION, -PROVINCE, -STANAME, -STATE, -X26, -GEOL_HUNT_DOM_DESC, -GEOL_REEDBUSH_DOM, -GEOL_REEDBUSH_DOM_PCT, -PERDUN, -PERHOR, MAINSTEM_SINUOUSITY, -CONTACT, -RUNAVE7100, -PPTAVG_BASIN, -T_AVG_BASIN, -PET, -LAT_GAGE, -LNG_GAGE, -geometry, -RRMEAN, -RRMEDIAN, -Mean, -NinetiethP, -TenthP,  -gauge_id, -stream_elas, -geol_1st_class, -geol_2nd_class, -HIRES_LENTIC_PCT, -LAT_CENT, -LONG_CENT, -Flashiness.y, -Flashiness.x) %>%
   drop_na()
 
-#clean observations, need square for hypergrid
+#Match observation length to hypergrid length (model tuning)
 forRF <- forRF %>%
   slice_tail(n = 80)
 ```
 
-### Train model, Running for BFI (low flow)
+### Prep for Model:
+ - hyper_grid: possible combinations for model
+ - train model, use BFI as predictor variable
+ 
 ```{r}
 # hyperparameter grid search
 hyper_grid <- expand.grid(
@@ -64,8 +72,7 @@ hyper_grid <- expand.grid(
 
 # total number of combinations
 nrow(hyper_grid)
-## [1] (need) 87
-
+## [1] 80
 
 for(i in 1:nrow(hyper_grid)) {
   
@@ -84,12 +91,13 @@ for(i in 1:nrow(hyper_grid)) {
   hyper_grid$OOB_RMSE[i] <- sqrt(model$prediction.error)
 }
 
+#print RMSE
 hyper_grid %>% 
   dplyr::arrange(OOB_RMSE)
 
 ```
 
-#Hist for BFI
+#Histogram for BFI
 ```{r}
 OOB_RMSE <- vector(mode = "numeric", length = 100)
 
@@ -119,7 +127,7 @@ BFI_importancesAll <- optimal_ranger$variable.importance %>%
       rename(importance = value, param = '...2') %>%
       mutate(measure = "BFI")
 
-#prelim, top variables
+#filter to see top variables
 BFI_importancesAll %>%
   filter(importance >= 72) %>%
   ggplot(aes(x = param, y = importance)) +
@@ -127,7 +135,7 @@ BFI_importancesAll %>%
 
 ```
 
-### Using flashiness (RBI) for high flow
+### Running RF for Flashiness
 ```{r}
 forRF <- merge(paramTypes, RBItable, by.x = 'STAID', by.y = 'site_no')
 
@@ -151,7 +159,7 @@ hyper_grid <- expand.grid(
 
 # total number of combinations
 nrow(hyper_grid)
-## [1] (need) 87
+## [1] 80
 
 for(i in 1:nrow(hyper_grid)) {
   
@@ -201,11 +209,12 @@ RBI_importancesAll_short <- RBI_importancesAll %>%
   ggplot(aes(x = param, y = importance)) +
   geom_bar(stat = "identity")
 
+#Histogram plot for RBI importants reflected to show significant characteristics
 RBI_importancesAll_short
 
 ```
 
-###Median Flow - NinetiethP
+### Running RF for Ninetieth Percentile (high flow)
 ```{r}
 #Remove stats, character obs
 forRF <- paramTypes %>%
@@ -276,7 +285,7 @@ NinetiethP_importancesAll <- optimal_ranger$variable.importance %>%
 
 ```
 
-### TenthP for low flow
+### Run RF for Tenth Percentile flow (low flow)
 ```{r}
 #Remove stats, character obs
 forRF <- paramTypes %>%
@@ -353,10 +362,11 @@ TenthP_importancesAll_plot
 
 ```
 
-### Mapping our indices 
+### Mapping catchment study area
+# End result is all four plots showing Flashiness, NinetiethP, TenthP, BFI
 ```{r}
-AppGages <- st_read("Exports/AppGauges_Filtered.shp", stringsAsFactors = FALSE)
-AppRegions <- st_read("Exports/AppalachianRegions.shp", stringsAsFactors = FALSE)
+AppGages <- st_read("Shapefiles/AppGauges_Filtered.shp", stringsAsFactors = FALSE)
+AppRegions <- st_read("Shapefiles/AppalachianRegions.shp", stringsAsFactors = FALSE)
 
 #join AppGages to Paramtypes shp
 AppGages_df <- AppGages %>%
@@ -368,10 +378,14 @@ AppGages_RF <- gages_join %>%
   st_as_sf()
 
 ProvinceMap <- tm_shape(AppRegions)+
-  tm_polygons(col = "PROVINCE", palette = "Spectral")+
-  tm_layout(legend.outside = TRUE)+
+  tm_polygons(col = "PROVINCE", palette = "BuGn")+
+  tm_layout(legend.title.size = 1,
+          legend.text.size = 0.6,
+          legend.position = c("right","bottom"),
+          legend.bg.color = "white",
+          legend.bg.alpha = 1)+
 tm_shape(AppGages_RF)+
-  tm_dots()+
+  tm_dots(size = 0.1)+
 tm_shape(us_states)+
   tm_borders()
 
@@ -381,7 +395,7 @@ ProvinceMap
 BFI <- tm_shape(AppRegions) +
   tm_fill("gray90")+
   tm_shape(AppGages_RF) +
-  tm_dots(col = "BFI_AVE", palette = "-viridis", size = 0.1) +
+  tm_dots(col = "BFI_AVE", palette = "-viridis", size = 0.3) +
   tm_layout("BFI",
           legend.title.size = 1,
           legend.text.size = 0.6,
@@ -396,7 +410,7 @@ BFI
 Flash <- tm_shape(AppRegions) +
   tm_fill("gray90")+
   tm_shape(AppGages_RF) +
-  tm_dots(col = "Flashiness", palette = "-viridis", size = 0.1) +
+  tm_dots(col = "Flashiness", palette = "-viridis", size = 0.3) +
   tm_layout("Flashiness",
           legend.title.size = 1,
           legend.text.size = 0.6,
@@ -413,7 +427,7 @@ library(patchwork)
 TenthP <- tm_shape(AppRegions) +
   tm_fill("gray90")+
   tm_shape(AppGages_RF) +
-  tm_dots(col = "TenthP", palette = "-viridis", size = 0.1) +
+  tm_dots(col = "TenthP", palette = "-viridis", size = 0.3) +
   tm_layout("TenthP Flow",
           legend.title.size = 1,
           legend.text.size = 0.6,
@@ -428,7 +442,7 @@ TenthP
 NinetiethP <- tm_shape(AppRegions) +
   tm_fill("gray90")+
   tm_shape(AppGages_RF) +
-  tm_dots(col = "NinetiethP", palette = "-viridis", size = 0.1) +
+  tm_dots(col = "NinetiethP", palette = "-viridis", size = 0.3) +
   tm_layout("NinetiethP Flow",
           legend.title.size = 1,
           legend.text.size = 0.6,
@@ -437,6 +451,7 @@ NinetiethP <- tm_shape(AppRegions) +
           legend.bg.alpha = 1) +
   tm_shape(us_states) +
   tm_borders()
+
 
 NinetiethP
 
@@ -447,11 +462,11 @@ tmap_save(Maps, "RFMaps.png")
 
 ```
 
-###Importance plotting for variables and join to sub groups
+###Cleaning data to create final percentage plot of importance values for Flashiness, BFI, NinetiethP, TenthP
 ```{r}
 library(data.table)
 
-vartypes <- read_csv("VarTypes.csv")
+vartypes <- read_csv("Data/VarTypes.csv")
 
 BFIbucket <- left_join(BFI_importancesAll, vartypes, by = "param") 
 
@@ -498,15 +513,16 @@ importance_plot <- df %>%
   ggplot(aes(x = table, y = value, fill = group)) +
   geom_col(position = "fill") +
   scale_y_continuous(labels = scales::percent) +
-  scale_fill_brewer(palette = "Set1") +
+  scale_fill_brewer(palette = "Dark2") +
   labs(x = "Hydrologic Measure",
        y = "Importance from RF") +
   coord_flip() +
-  scale_x_discrete(labels = c("Low flow", "Flashiness", "Median Flow", "Baseflow Index")) +
+  scale_x_discrete(labels = c("10th Percentile flow", "Flashiness (RBI)", "90th Percentile Flow", "Baseflow Index (BFI)")) +
   guides(fill=guide_legend(title="Parameter Group"))
 
 importance_plot
 
 ggsave("ImportancePlot.png", plot = importance_plot)
+
 ```
 

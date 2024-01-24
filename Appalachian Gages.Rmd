@@ -49,11 +49,10 @@ Lowlands sections.
 Taken from GAGES-II, intersected with physiographic region in ArcGIS.
 
 ```{r}
-setwd("C:/Users/lfink/Desktop/Hydro Research 2022 2023/Exports")
 
-AppGages <- st_read("AppGauges_Filtered.shp")
+AppGages <- st_read("Data/Shapefiles/AppGauges_Filtered.shp")
   
-AppRegions <- st_read("AppalachianRegions.shp")
+AppRegions <- st_read("Data/Shapefiles/AppalachianRegions.shp")
 
 AppGagesdf <- as.data.frame(AppGages)
 ```

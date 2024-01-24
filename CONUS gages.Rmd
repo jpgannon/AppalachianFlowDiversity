@@ -1,0 +1,84 @@
+---
+title: "Appalachian Flow Diversity - CONUS Gages"
+output: html_document
+---
+
+```{r}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Load packages
+```{r}
+#Data manipulation / cleaning packages
+library(tidyverse)
+library(ggforce)
+library(lubridate)
+library(dplyr)
+library(readr)
+
+#USGS package with flow info
+library(dataRetrieval)
+
+#Packages working with geospatial data
+library(sf)
+library(tmap)
+library(mapview)
+
+```
+
+##Read in gages
+
+GAGESII has the point shapefile for the gages we will use. We can filter these for HCDN-2009 criteria:
+#### HCDN-2009 criteria:
+
+(a) have 20 years of complete and continuous flow record in the last 20
+    years (water years 1990-2009), and were thus also currently active
+    as of 2009
+
+(b) are identified as being in current reference condition according to
+    the GAGES-II classification
+
+(c) have less than 5 percent imperviousness as measured from the NLCD
+    2006
+
+(d) were not eliminated by a review from participating state Water
+    Science Center evaluators.
+    
+After filtering the GAGESII points, we can join these based off of station number to produce gages that have corresponding spatial attributes from the CAMELSII datasets.
+
+
+```{r}
+#Read in gauges 
+gages_conus <- st_read("Data/Shapefiles/gagesII_9322_sept30_2011.shp")  |>
+  subset(HCDN_2009 == "yes") |>
+  subset(STATE != "AK" & STATE != "HI" & STATE != "PR")
+
+#This file contains some hydrologic signatures, but we are joining for the purpose of ensuring the GAGESII sites match with CAMELS data
+camels_hydro <- read_delim("CAMELS DATA/camels_hydro.txt")
+
+gages_hydro <- merge(gages_conus, camels_hydro, by.x = "STAID", by.y = "gauge_id")
+
+#We can use 'mapview()' function to view site points:
+mapview(gages_hydro, zcol = "q_mean")
+
+```
+
+Read in province shapefile
+```{r}
+#Read in province shapefile
+province <- st_read('Data/Shapefiles/physio.shp')
+
+mapview(province, zcol='PROVINCE')
+```
+
+## Task 1:
+We are trying to join the name of the physiographic province to the filtered stream gages (gages_hydro).
+
+It would also be beneficial to analyze across watershed here: https://www.usgs.gov/national-hydrography/watershed-boundary-dataset
+
+```{r}
+
+#Code goes here
+
+```
+
