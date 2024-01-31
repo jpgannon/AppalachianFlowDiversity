@@ -1,0 +1,107 @@
+---
+title: "Appalachian Gauges"
+output: html_document
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Site selection and data cleaning:
+```{r, echo=FALSE}
+library(tidyverse)
+library(ggforce)
+library(dataRetrieval)
+library(sf)
+library(tmap)
+library(spData)
+library(repr)
+library(zoo)
+library(lubridate)
+library(moments)
+library(broom)
+library(AICcmodavg)
+library(raster)
+library(rgdal)
+
+tmap_mode("plot")
+
+theme_set(theme_classic())
+```
+
+## Read in shapefile for Appalachian physiographic region
+
+Excluding St. Lawrence Valley, New England Uplands, and Seaboard
+Lowlands sections.
+
+## Read in shapefile for gages
+
+Gages from CAMELS dataset, GAGESII shapefile joined to station by Gage ID
+
+```{r}
+AppRegions <- st_read("Data/Shapefiles/AppalachianRegions.shp")
+
+AppGages <- read_csv("SAgages.csv")
+
+AppGagesshp <- st_read("SAgages.shp") 
+
+ProvinceMap <- tm_shape(AppRegions)+
+  tm_polygons(col = "SECTION", palette = "Spectral")+
+  tm_layout(legend.outside = TRUE)+
+tm_shape(AppGagesshp)+
+  tm_dots()+
+tm_shape(us_states)+
+  tm_borders()
+
+ProvinceMap
+head(AppGages)
+```
+## Join watershed attributes from CAMELS dataset:
+
+ - Can add more watershed characteristics here.
+```{r}
+WSfactors <- full_join(read_delim("CAMELS Data/camels_clim.txt"), read_delim("CAMELS Data/camels_geol.txt"), by = "gauge_id") %>%
+  full_join(read_delim("CAMELS Data/camels_soil.txt"), by = "gauge_id") %>%
+  inner_join(AppGages, by = "gauge_id")
+
+write_csv(WSfactors, "CAMELSapps_attr.csv")
+```
+
+## Testing CAMELS stats against USGS:
+```{r}
+sitenos <- AppGages$gauge_id
+parameterCd <- "00060" 
+startDate <- "1981-01-01"  
+endDate <- "2010-12-31"
+
+for(i in 1:28)
+{
+if(i == 1){
+  QdatDV <- readNWISdv(sitenos[i], parameterCd, startDate, endDate)
+}else{
+   QdatDVnew <- readNWISdv(sitenos[i], parameterCd, startDate, endDate) 
+  QdatDV <- rbind(QdatDVnew, QdatDV)
+   }
+}
+
+QdatDV <- QdatDV %>% renameNWISColumns()
+
+QdvStats <- QdatDV %>% 
+  group_by(site_no) %>%
+  summarize(Mean = mean(Flow),
+            Median = median(Flow),
+            StandardDeviation = sd(Flow),
+            IQR = IQR(Flow),
+            TenthP = quantile(Flow, probs = c(0.10)),
+            NinetiethP = quantile(Flow, probs = c(0.9)),
+            Count = n())
+
+QdvStats <- inner_join(QdvStats, AppGages, by = c("site_no" = "gauge_id")) 
+
+#cfs to mm/day
+QdatDV <- QdatDV %>% mutate(Qmm_day = 2.447 * Flow / DRAIN_SQKM)
+```
+

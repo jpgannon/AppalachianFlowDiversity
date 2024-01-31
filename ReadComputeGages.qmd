@@ -1,0 +1,47 @@
+---
+title: "Read and Compute Gages"
+format: html
+editor: visual
+---
+
+Quarto markdown to read in gages from CAMELS data set, compute hydrologic signatures.
+
+## Read in Libraries:
+
+```{r, echo=FALSE}
+library(tidyverse)
+library(ggforce)
+library(lubridate)
+library(dplyr)
+library(readr)
+
+#USGS package with flow info
+library(dataRetrieval)
+
+#Packages working with geospatial data
+library(sf)
+library(tmap)
+library(mapview)
+```
+
+## Read in gauges from CAMELS dataset:
+
+'camels_hydro' is the dataset using CAMELS gauges and computing signatures:
+
+-   flow mean (q_mean), runoff ratio, slope flow duration (slope_fdc), baseflow index, steam elasticity, q5, q95, high flow freq, low flow freq, zero flow freq,
+
+```{r}
+camels_hydro <- read_delim("CAMELS Data/camels_hydro.txt")
+
+#All other CAMELS data
+camels_all <- full_join(read_delim("CAMELS Data/camels_clim.txt"),
+                                     read_delim("CAMELS Data/camels_geol.txt"), by = "gauge_id") |>
+  full_join(read_delim("CAMELS Data/camels_hydro.txt"), by = "gauge_id") |>
+  full_join(read_delim("CAMELS Data/camels_soil.txt"), by = "gauge_id") |>
+  full_join(read_delim("CAMELS Data/camels_topo.txt"), by = "gauge_id") |>
+  full_join(read_delim("CAMELS Data/camels_vege.txt"), by = "gauge_id") 
+
+#View Camels hydrology:
+head(camels_hydro)
+
+```
