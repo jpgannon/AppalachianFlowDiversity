@@ -44,12 +44,12 @@ Gages from CAMELS dataset, GAGESII shapefile joined to station by Gage ID
 ```{r}
 AppRegions <- st_read("Data/Shapefiles/AppalachianRegions.shp")
 
-AppGages <- read_csv("SAgages.csv")
+AppGages <- read_csv("Data/SAgages.csv")
 
-AppGagesshp <- st_read("SAgages.shp") 
+AppGagesshp <- st_read("Data/SAgages.shp") 
 
 ProvinceMap <- tm_shape(AppRegions)+
-  tm_polygons(col = "SECTION", palette = "Spectral")+
+  tm_polygons(col = "PROVINCE", palette = "Spectral")+
   tm_layout(legend.outside = TRUE)+
 tm_shape(AppGagesshp)+
   tm_dots()+
@@ -58,6 +58,8 @@ tm_shape(us_states)+
 
 ProvinceMap
 head(AppGages)
+
+mapview(AppGagesshp)
 ```
 ## Join watershed attributes from CAMELS dataset:
 

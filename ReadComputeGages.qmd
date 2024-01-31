@@ -22,6 +22,7 @@ library(dataRetrieval)
 library(sf)
 library(tmap)
 library(mapview)
+
 ```
 
 ## Read in gauges from CAMELS dataset:
@@ -39,9 +40,29 @@ camels_all <- full_join(read_delim("CAMELS Data/camels_clim.txt"),
   full_join(read_delim("CAMELS Data/camels_hydro.txt"), by = "gauge_id") |>
   full_join(read_delim("CAMELS Data/camels_soil.txt"), by = "gauge_id") |>
   full_join(read_delim("CAMELS Data/camels_topo.txt"), by = "gauge_id") |>
-  full_join(read_delim("CAMELS Data/camels_vege.txt"), by = "gauge_id") 
+  full_join(read_delim("CAMELS Data/camels_vege.txt"), by = "gauge_id") |> 
+  full_join(read_delim("CAMELS Data/camels_name.txt"), by = "gauge_id")
 
 #View Camels hydrology:
 head(camels_hydro)
 
 ```
+
+
+## Joining CAMELS data to USGS Shps
+
+```{r}
+# find USGS gages points and province shapefiles:
+
+# join CAMELS data (671 sites) to USGS data (left_join)
+# st_read() to read in shapefile
+# join CAMELS data to shapefile
+
+# use select() to get "PROVINCE", "SECTION", "Geometry" 
+
+# can use mapview() to see points
+
+
+```
+
+
