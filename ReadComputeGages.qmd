@@ -85,9 +85,6 @@ mapview(Camels_mapping)
 mapview(App_Gauges_Camels)
 
 
-
-
-
 ```
 
 ```{r}
