@@ -21,6 +21,7 @@ library(dataRetrieval)
 #Packages working with geospatial data
 library(sf)
 library(tmap)
+library(tmaptools)
 library(mapview)
 
 ```
@@ -48,7 +49,6 @@ head(camels_hydro)
 
 ```
 
-
 ## Joining CAMELS data to USGS Shps
 
 ```{r}
@@ -62,7 +62,53 @@ head(camels_hydro)
 
 # can use mapview() to see points
 
+App_regions = st_read("Data/Shapefiles/AppalachianRegions.shp")
+App_gaugesfiltered = st_read ("Data/Shapefiles/AppGauges_Filtered.shp")
+GagesII = st_read("Data/Shapefiles/gagesII_9322_sept30_2011.shp")
+physio_regions = st_read("Data/Shapefiles/physio.shp")
+
+Camels_all_joined = right_join(GagesII,camels_all, by=c('STAID'='gauge_id'))
+
+####select mean annual discharge, mean winter discharge, mean summer discharge, high flow (90%), low flow (10%), BFI, runoff ratio, and RBI
+
+## Camels_signatures = select(Camels_all_joined,)
+
+Camels_mapping = select(Camels_all_joined, STAID, AGGECOREGI, STATE, geometry)
+
+####App Gauges
+App_Gauges_Camels = inner_join(App_gaugesfiltered,camels_all, by=c('STAID'='gauge_id'))
+
+###mapping
+
+mapview(Camels_mapping)
+
+mapview(App_Gauges_Camels)
+
+
+
+
 
 ```
 
+```{r}
+#### boxplots
 
+boxplot(Camels_all_joined$baseflow_index, main="Baseflow Index across CONUS")
+
+boxplot(Camels_all_joined$baseflow_index~Camels_all_joined$AGGECOREGI, main="Baseflow Index Across CONUS",xlab="EcoRegion",ylab="BFI",col=c("blue","green","red","gold","purple","pink","lemonchiffon","lightblue","orange"))
+
+boxplot(App_Gauges_Camels$baseflow_index~App_Gauges_Camels$PROVINCE, main="Baseflow Index Across the Appalachian Mountains",xlab="Province",ylab="BFI",col=c("red2","blue","green"))
+
+#### tmap
+
+tmap_mode("plot")
+
+tmap_options(check.and.fix = TRUE)
+
+tm_shape(Camels_mapping)
+  tm_dots(col="blue")
+
+
+
+
+```
