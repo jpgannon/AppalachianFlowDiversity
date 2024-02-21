@@ -9,11 +9,16 @@ Quarto markdown to read in gages from CAMELS data set, compute hydrologic signat
 ## Read in Libraries:
 
 ```{r, echo=FALSE}
+#install.packages("data.table")
+
 library(tidyverse)
 library(ggforce)
 library(lubridate)
 library(dplyr)
 library(readr)
+library(data.table)
+library(leaflet)
+
 
 #USGS package with flow info
 library(dataRetrieval)
@@ -32,7 +37,16 @@ library(mapview)
 
 -   flow mean (q_mean), runoff ratio, slope flow duration (slope_fdc), baseflow index, steam elasticity, q5, q95, high flow freq, low flow freq, zero flow freq,
 
+```         
+```
+
 ```{r}
+## Read in gauges from CAMELS dataset:
+
+#'camels_hydro' is the dataset using CAMELS gauges and computing signatures:
+
+#flow mean (q_mean), runoff ratio, slope flow duration (slope_fdc), baseflow index, steam elasticity, q5, q95, high flow freq, low flow freq, zero flow freq,
+
 camels_hydro <- read_delim("CAMELS Data/camels_hydro.txt")
 
 #All other CAMELS data
@@ -49,61 +63,129 @@ head(camels_hydro)
 
 ```
 
-## Joining CAMELS data to USGS Shps
+\
 
 ```{r}
-# find USGS gages points and province shapefiles:
+##### reading in USGS with CAMELS 
 
-# join CAMELS data (671 sites) to USGS data (left_join)
-# st_read() to read in shapefile
-# join CAMELS data to shapefile
+USGS = st_read("C:\\Users\\Logan\\Desktop\\College\\Coursework\\Junior Year\\Research Project\\data\\Gages_physio shp")
 
-# use select() to get "PROVINCE", "SECTION", "Geometry" 
+USGS_select = select(USGS, SOURCE_FEA, SOURCE_ORI, FEATUREDET, Measure, EventType, FLComID, AREA, PERIMETER, PHYSIODD_, PHYSIODD_I, FCODE, FENCODE, DIVISION, PROVINCE, SECTION, PROVCODE, geometry)
 
-# can use mapview() to see points
+camels_joined = right_join(USGS_select, camels_all, by=c('SOURCE_FEA'='gauge_id'))
 
-App_regions = st_read("Data/Shapefiles/AppalachianRegions.shp")
-App_gaugesfiltered = st_read ("Data/Shapefiles/AppGauges_Filtered.shp")
-GagesII = st_read("Data/Shapefiles/gagesII_9322_sept30_2011.shp")
-physio_regions = st_read("Data/Shapefiles/physio.shp")
+#### case_when()
 
-Camels_all_joined = right_join(GagesII,camels_all, by=c('STAID'='gauge_id'))
+camels_joined = mutate(camels_joined, CONUS = case_when(
+  DIVISION == "APPALACHIAN HIGHLANDS" ~ "APPS", TRUE ~ "CONUS"))
 
-####select mean annual discharge, mean winter discharge, mean summer discharge, high flow (90%), low flow (10%), BFI, runoff ratio, and RBI
+head(camels_joined)
+  
+app_gauges = filter(camels_joined, DIVISION == "APPALACHIAN HIGHLANDS")
+app_gauges_CONUS = app_gauges
+app_gauges_CONUS$CONUS[app_gauges_CONUS$CONUS == "APPS"] <- "CONUS"
+##View(app_gauges_CONUS)
 
-## Camels_signatures = select(Camels_all_joined,)
+camels_final = rbindlist(list(camels_joined,app_gauges_CONUS))
 
-Camels_mapping = select(Camels_all_joined, STAID, AGGECOREGI, STATE, geometry)
-
-####App Gauges
-App_Gauges_Camels = inner_join(App_gaugesfiltered,camels_all, by=c('STAID'='gauge_id'))
-
-###mapping
-
-mapview(Camels_mapping)
-
-mapview(App_Gauges_Camels)
+#write.csv(camels_final,"C:\\Users\\Logan\\Desktop\\College\\Coursework\\Junior Year\\Second Semester\\Analysis in GIS\\ESDA\\ESDA\\camels_final.csv")
+#write.csv(camels_joined,"C:\\Users\\Logan\\Desktop\\College\\Coursework\\Junior Year\\Second Semester\\Analysis in GIS\\ESDA\\ESDA\\camels_joined.csv")
+#st_write(camels_joined,"C:\\Users\\Logan\\Desktop\\College\\Coursework\\Junior Year\\Second Semester\\Analysis in GIS\\ESDA\\ESDA\\camels_joined.shp")
 
 
 ```
 
+## Creating Study Area Maps
+
 ```{r}
-#### boxplots
 
-boxplot(Camels_all_joined$baseflow_index, main="Baseflow Index across CONUS")
+App_regions = st_read("Data/Shapefiles/AppalachianRegions.shp")
+#GagesII = st_read("Data/Shapefiles/gagesII_9322_sept30_2011.shp")
+physio_regions = st_read("Data/Shapefiles/physio.shp")
+watersheds = st_read("Mapping Data/small_ws")
+states = st_read("Mapping Data/cb_2018_us_state_20m")
 
-boxplot(Camels_all_joined$baseflow_index~Camels_all_joined$AGGECOREGI, main="Baseflow Index Across CONUS",xlab="EcoRegion",ylab="BFI",col=c("blue","green","red","gold","purple","pink","lemonchiffon","lightblue","orange"))
+####select mean annual discharge, mean winter discharge, mean summer discharge, high flow (90%), low flow (10%), BFI, runoff ratio, and RBI
 
-boxplot(App_Gauges_Camels$baseflow_index~App_Gauges_Camels$PROVINCE, main="Baseflow Index Across the Appalachian Mountains",xlab="Province",ylab="BFI",col=c("red2","blue","green"))
+#app_states = select(filter(states, NAME=="Florida","Georgia","Alabama","South Carolina","North Carolina","Tennessee","Kentucky","West Virgina","Virginia","Maryland","Delaware","Ohio","Pennsylvania","New Jersey","New York","Massachusetts","Rhode Island","Conneticut","New Hampshire","Vermont","Maine","District of Columbia"))
+
+###mapping
+
+mapview(camels_joined)
+
+mapview(app_gauges)
+
 
 #### tmap
+theme_set(theme_classic())
 
 tmap_mode("plot")
 
 tmap_options(check.and.fix = TRUE)
 
-tm_shape(Camels_mapping)
-  tm_dots(col="blue")
+
+tm_shape(camels_joined)+
+  tm_dots(col="blue")+
+  tm_shape(states)+
+  tm_borders()+
+  tm_compass(type="4star",position=c("right","bottom"))+
+  tm_scale_bar(position=c("left","bottom"))+
+  tm_layout(title="CAMELS Gauges", title.position=c("right","TOP"))
+  
+tm_shape(watersheds)+
+  tm_fill("lightblue")+
+  tm_borders()+
+  tm_shape(states)+
+  tm_borders()+
+  tm_compass(type="4star",position=c("right","bottom"))+
+  tm_scale_bar(position=c("left","bottom"))+
+  tm_layout(title="CAMELS Watersheds", title.position=c("right","TOP"))
+
+tm_shape(App_regions)+
+  tm_fill()+
+  tm_borders()+
+  tm_shape(states)+
+  tm_borders()+
+  tm_shape(app_gauges)+
+  tm_dots(col="blue")+
+  tm_compass(type="4star",position=c("right","bottom"))+
+  tm_scale_bar(position=c("left","bottom"))+
+  tm_layout(title="Appalachian Gauges", title.position=c("center","TOP"))
+
+tm_shape(app_gauges)+
+  tm_dots(col="blue")+
+  tm_shape(states)+
+  tm_borders()+
+  tm_shape(App_regions)+
+  tm_fill()+
+  tm_borders()+
+  tm_compass(type="4star",position=c("right","bottom"))+
+  tm_scale_bar(position=c("left","bottom"))+
+  tm_layout(title="Appalachian Gauges", title.position=c("center","TOP"))
+
+
+```
+
+Creating Boxplots
+
+```{r}
+#### boxplots
+#### use ggplot instead of boxplot
+
+#Camels_all_joined |> 
+  #ggplot(aes(AGGECOREGI,baseflow_index))+
+  #geom_boxplot()
+
+### aes sets x and y variables
+### make new column in CAMELS with new variable Appregions "yes" or "no"
+### use mutate and case_when to create new columb with logic statement
+
+
+boxplot(camels_joined$baseflow_index, main="Baseflow Index across CONUS")
+
+boxplot(camels_joined$baseflow_index~camels_joined$DIVISION, main="Baseflow Index Across CONUS",xlab="Division",ylab="BFI",col=c("blue","green","red","gold","purple","pink","lemonchiffon","lightblue","orange"))
+
+boxplot(app_gauges$baseflow_index~app_gauges$PROVINCE, main="Baseflow Index Across the Appalachian Mountains",xlab="Province",ylab="BFI",col=c("red2","blue","green"))
 
 
 
