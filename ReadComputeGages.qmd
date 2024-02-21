@@ -13,6 +13,7 @@ Quarto markdown to read in gages from CAMELS data set, compute hydrologic signat
 
 library(tidyverse)
 library(ggforce)
+library(ggplot2)
 library(lubridate)
 library(dplyr)
 library(readr)
@@ -89,13 +90,13 @@ app_gauges_CONUS$CONUS[app_gauges_CONUS$CONUS == "APPS"] <- "CONUS"
 camels_final = rbindlist(list(camels_joined,app_gauges_CONUS))
 
 #write.csv(camels_final,"C:\\Users\\Logan\\Desktop\\College\\Coursework\\Junior Year\\Second Semester\\Analysis in GIS\\ESDA\\ESDA\\camels_final.csv")
-#write.csv(camels_joined,"C:\\Users\\Logan\\Desktop\\College\\Coursework\\Junior Year\\Second Semester\\Analysis in GIS\\ESDA\\ESDA\\camels_joined.csv")
-#st_write(camels_joined,"C:\\Users\\Logan\\Desktop\\College\\Coursework\\Junior Year\\Second Semester\\Analysis in GIS\\ESDA\\ESDA\\camels_joined.shp")
 
 
 ```
 
 ## Creating Study Area Maps
+
+sf_use_s2(TRUE)
 
 ```{r}
 
@@ -115,6 +116,7 @@ mapview(camels_joined)
 
 mapview(app_gauges)
 
+camels_mapping = st_sf(camels_final)
 
 #### tmap
 theme_set(theme_classic())
@@ -124,7 +126,7 @@ tmap_mode("plot")
 tmap_options(check.and.fix = TRUE)
 
 
-tm_shape(camels_joined)+
+tm_shape(camels_mapping)+
   tm_dots(col="blue")+
   tm_shape(states)+
   tm_borders()+
@@ -146,22 +148,38 @@ tm_shape(App_regions)+
   tm_borders()+
   tm_shape(states)+
   tm_borders()+
-  tm_shape(app_gauges)+
+  tm_shape(filter(camels_mapping, CONUS == "APPS"))+
   tm_dots(col="blue")+
   tm_compass(type="4star",position=c("right","bottom"))+
   tm_scale_bar(position=c("left","bottom"))+
   tm_layout(title="Appalachian Gauges", title.position=c("center","TOP"))
-
-tm_shape(app_gauges)+
+  
+tm_shape(App_regions)+
+  tm_fill(col="PROVINCE")+
+  tm_borders()+
+  tm_shape(app_gauges)+
   tm_dots(col="blue")+
   tm_shape(states)+
   tm_borders()+
-  tm_shape(App_regions)+
-  tm_fill()+
-  tm_borders()+
   tm_compass(type="4star",position=c("right","bottom"))+
   tm_scale_bar(position=c("left","bottom"))+
   tm_layout(title="Appalachian Gauges", title.position=c("center","TOP"))
+  tm_layout(legend.position=c("left","center"))
+  
+watersheds <- watersheds %>%
+  mutate(GAGE_ID = paste0("0", hru_id))
+
+##sf_use_s2(TRUE)
+##watersheds_apps <- left_join(app_gauges,watersheds, by=c("GAGE_ID"="SOURCE_FEA"))
+  
+  tm_shape(watersheds)+
+    tm_fill("lightblue")+
+    tm_borders()+
+    tm_shape(states)+
+    tm_borders()+
+    tm_compass(type="4star",position=c("right","bottom"))+
+    tm_scale_bar(position=c("left","bottom"))+
+    tm_layout(title="CAMELS Watersheds", title.position=c("right","TOP"))
 
 
 ```
@@ -172,9 +190,86 @@ Creating Boxplots
 #### boxplots
 #### use ggplot instead of boxplot
 
-#Camels_all_joined |> 
-  #ggplot(aes(AGGECOREGI,baseflow_index))+
+###Basic Statistics
+
+#summary(camels_joined$baseflow_index)
+#summary(app_gauges$baseflow_index)
+
+#####ESDA Spatial Analysis Class Boxplots
+#########select mean annual discharge, mean winter discharge, mean summer discharge, high flow (90%), low flow (10%), BFI, runoff ratio, and RBI
+
+par(mfcol=c(1,4))
+
+boxplot(camels_final$baseflow_index~camels_final$CONUS,xlab="Region",ylab="BFI")
+
+boxplot(camels_final$runoff_ratio~camels_final$CONUS,xlab="Region",ylab="Runoff Ratio")
+
+boxplot(camels_final$q5~camels_final$CONUS,xlab="Region",ylab="Low Flow (5%)")
+
+boxplot(camels_final$q95~camels_final$CONUS,xlab="Region",ylab="High Flow (95%)")
+
+## ggplot boxplots
+
+##example
+##camels_final |> 
+  #ggplot(aes(CONUS,baseflow_index))+
   #geom_boxplot()
+
+par(mfcol=c(1,1))
+
+ggplot(data=camels_final,aes(x=CONUS,y=baseflow_index))+
+  geom_boxplot()+
+  ##ggtitle()+
+  xlab("Region")+
+  ylab("BFI")
+
+ggplot(data=camels_final,aes(x=CONUS,y=runoff_ratio))+
+  geom_boxplot()+
+  ##ggtitle()+
+  xlab("Region")+
+  ylab("Runoff Ratio")
+
+ggplot(data=camels_final,aes(x=CONUS,y=q5))+
+  geom_boxplot()+
+  ##ggtitle()+
+  xlab("Region")+
+  ylab("Low Flow (5%)")
+
+ggplot(data=camels_final,aes(x=CONUS,y=q95))+
+  geom_boxplot()+
+  ##ggtitle()+
+  xlab("Region")+
+  ylab("High Flow (95%)")
+
+########
+
+ggplot(data=camels_final,aes(x=CONUS,y=baseflow_index))+
+  geom_boxplot()+
+  scale_y_log10()+
+  ##ggtitle()+
+  xlab("Region")+
+  ylab("BFI")
+
+ggplot(data=camels_final,aes(x=CONUS,y=runoff_ratio))+
+  geom_boxplot()+
+  scale_y_log10()+
+  ##ggtitle()+
+  xlab("Region")+
+  ylab("Runoff Ratio")
+
+ggplot(data=camels_final,aes(x=CONUS,y=q5))+
+  geom_boxplot()+
+  scale_y_log10()+
+  ##ggtitle()+
+  xlab("Region")+
+  ylab("Low Flow (5%)")
+
+ggplot(data=camels_final,aes(x=CONUS,y=q95))+
+  geom_boxplot()+
+  scale_y_log10()+
+  ##ggtitle()+
+  xlab("Region")+
+  ylab("High Flow (95%)")
 
 ### aes sets x and y variables
 ### make new column in CAMELS with new variable Appregions "yes" or "no"
@@ -185,9 +280,24 @@ boxplot(camels_joined$baseflow_index, main="Baseflow Index across CONUS")
 
 boxplot(camels_joined$baseflow_index~camels_joined$DIVISION, main="Baseflow Index Across CONUS",xlab="Division",ylab="BFI",col=c("blue","green","red","gold","purple","pink","lemonchiffon","lightblue","orange"))
 
-boxplot(app_gauges$baseflow_index~app_gauges$PROVINCE, main="Baseflow Index Across the Appalachian Mountains",xlab="Province",ylab="BFI",col=c("red2","blue","green"))
+```
 
+Distribution Curves
 
+```{r}
+####histograms
 
+#### density functions
 
+plot(density(camels_joined$baseflow_index))
+plot(density(app_gauges$baseflow_index))
+
+plot(density(camels_density$runoff_ratio, na.rm = TRUE))
+plot(density(app_gauges$runoff_ratio, na.rm = TRUE))
+
+plot(density(camels_joined$q5, na.rm = TRUE))
+plot(density(app_gauges$q5, na.rm = TRUE))
+
+plot(density(camels_joined$q95, na.rm = TRUE))
+plot(density(app_gauges$q95, na.rm = TRUE))
 ```
