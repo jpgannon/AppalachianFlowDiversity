@@ -1,0 +1,282 @@
+---
+title: "Stats"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Basic daily value stats: mean, median, standard deviation, IQR, 10th percentile, 90th percentile
+
+```{r}
+QdvStats <- QdatDV %>% 
+  group_by(site_no) %>%
+  summarize(Mean = mean(Flow),
+            Median = median(Flow),
+            StandardDeviation = sd(Flow),
+            IQR = IQR(Flow),
+            TenthP = quantile(Flow, probs = c(0.10)),
+            NinetiethP = quantile(Flow, probs = c(0.9)),
+            Count = n())
+
+QdvStats <- left_join(QdvStats, AppGagesSlim, by = c("site_no" = "STAID"))
+
+write.csv(QdvStats, "QdvStats.csv")
+```
+
+Statistical significance testing using ANOVA
+
+Results: P = 2 x 10\^-16
+
+Interpretation: statistically significant difference in area-normalized flow between provinces.
+
+```{r}
+FlowANOVA <- aov(Qmm_day ~ PROVINCE, data = QdatDV)
+
+summary(FlowANOVA)
+
+```
+
+Flow duration curve prep: ranking, exceedance probability
+
+```{r}
+QdatDV <- QdatDV %>%
+  group_by(site_no) %>%
+  mutate(rank = rank(-Qmm_day)) %>% 
+  mutate(P = 100 * (rank / (length(Qmm_day) + 1)))
+```
+
+7Q10
+
+```{r}
+Xday <- 7
+YrecInt <- 10
+
+#rolling mean
+QdatDV <- QdatDV %>% 
+                  group_by(site_no) %>%
+                  mutate(xdaymean = rollmean(Qmm_day, 
+                                            Xday, 
+                                            fill = NA, 
+                                            na.rm = F, 
+                                            align = "right"))
+
+#yealy minimums, excluding years missing > 10% of each year and 10% or greater NAs
+QyearlyMins <- QdatDV %>% mutate(year = year(Date)) %>%
+                        group_by(year, site_no) %>%
+                        summarize(minQ = min(xdaymean, na.rm = T), 
+                                  lenDat = length(Qmm_day),
+                                  lenNAs = sum(is.na(xdaymean))) %>%
+                        filter(lenDat > 328 & lenNAs / lenDat < 0.1) 
+
+#ranks, exceedance probs, return intervals
+QyearlyMins <- QyearlyMins %>% group_by(site_no) %>% 
+                mutate(rank = rank(minQ, ties.method = "first")) %>%
+                mutate(ReturnInterval = (length(rank) + 1)/rank) %>%
+                mutate(ExceedProb = 1 / ReturnInterval)
+ 
+#Xbar, S, g
+#note: sites 01613050 and 03237280 produced NaNs
+QyearlyMins <- QyearlyMins %>% group_by(site_no) %>%
+                mutate(Xbar = mean(log10(minQ))) %>%
+                mutate(S = sd(log10(minQ))) %>%
+                mutate(g = skewness(log10(minQ)))
+
+#Z, K, Qfit
+QyearlyMins <- QyearlyMins %>% group_by(site_no) %>%
+                mutate(z = 4.91 * ((1 / ReturnInterval) ^ 0.14 - (1 - 1 / ReturnInterval) ^ 0.14)) %>%
+                mutate(K = (2 / g) * (((1 + (g * z) / 6 - (g ^ 2) / 36) ^ 3) - 1) ) %>%
+                mutate(Qfit = 10^(Xbar + (K * S)))
+
+
+
+#7Q10
+#note: "median()" is arbitrary. added to prevent duplicates in summary table
+zrecInt <- 4.91 * ((1 / YrecInt) ^ 0.14 - (1 - 1 / YrecInt) ^ 0.14)
+
+SevenQten <- QyearlyMins %>% group_by(site_no) %>%
+                summarize(K = (2 / median(g)) * (((1 + (median(g) * zrecInt) / 6 - (median(g) ^ 2) / 36) ^ 3) - 1),
+                          PearsonxQy = 10^(median(Xbar) + K * median(S)))
+
+
+#join to attributes
+SevenQten <- left_join(SevenQten, AppGagesSlim, by = c("site_no" = "STAID"))
+```
+
+Peak flow stuff (incomplete)
+
+```{r}
+peaks <- readNWISpeak(sitenos, "1981-01-01", "2010-12-30")
+
+peaks <- left_join(peaks, AppGages, by = c("site_no" = "STAID"))
+
+#area normalizaed (csm)
+peaks <- peaks %>% mutate(csm = peak_va / (0.386102 * DRAIN_SQKM))
+
+
+
+peaks <- peaks %>% 
+              group_by(site_no) %>%
+              mutate(ranks = rank(-csm))%>%
+              mutate(P = 100 * (ranks / (31)))
+
+peaks %>% ggplot(aes(x = P, y = csm, color = SECTION))+
+  geom_point()+
+  scale_y_log10()+
+  xlab("% Time flow equalled or exceeded")+
+  ylab("Q (csm)")
+
+peaks %>% ggplot(aes(SECTION, csm))+
+  stat_boxplot()+
+  scale_y_log10()+
+  theme(axis.text.x = element_text(angle = 90))
+```
+
+Baseflow
+
+```{r}
+#exclude sites with gaps in data
+QdatBaseflow <- QdatDV %>% filter(site_no != "03050000" & site_no != "03281100" & site_no != "03450000" & site_no != "03187500" & site_no != "01613050" & site_no != "03159540")
+
+#vector with flow
+FlowBase <- QdatBaseflow$Flow
+
+
+#baseflow separation for 111 gages
+#10957 = 30 yr * 365 days + 7 leap days
+#when you get to this point you need the source code for baseflow 
+# for(i in 1:111)
+# {
+# 
+# if(i == 1){
+#   Baseflow <-BaseflowSeparation(FlowBase[((10957 * (i - 1)) + 1):(10957 * i)], 0.925, 3)
+# }else{
+#    Baseflownew <- BaseflowSeparation(FlowBase[((10957 * (i - 1)) + 1):(10957 * i)], 0.925, 3) 
+#   Baseflow <- rbind(Baseflow, Baseflownew)
+#    }
+# }
+                                                    
+#add to original dataframe
+QdatBaseflow <- cbind(Baseflow, QdatBaseflow)
+
+
+
+#sum total flow, baseflow for each gage each year. BFI calculation
+BFyearlysum <- QdatBaseflow %>% mutate(Year = year(Date)) %>%
+  group_by(Year, site_no) %>%
+  summarize(BFyear = sum(bt),
+            Qyear = sum(Flow),
+            BFI = BFyear / Qyear)
+
+#join to attributes
+BFyearlysum <- left_join(BFyearlysum, AppGagesSlim, by = c("site_no" = "STAID"))
+
+#average annual BFI
+BFI_means <- BFyearlysum %>% group_by(site_no) %>%
+  summarize(BFI_MeanAnnual = mean(BFI))
+
+#join to attributes
+BFI_means <- inner_join(BFI_means, AppGagesSlim, by = c("site_no" = "STAID"))
+```
+
+Annual BFI statistical significance between provinces
+
+P \< 2 x 10\^-16
+
+```{r}
+bfiANOVA <- aov(BFI ~ PROVINCE, data = BFyearlysum)
+
+summary(bfiANOVA)
+```
+
+Flashiness
+
+```{r}
+#exclude sites with flow gaps
+QdatXgaps <- QdatDV %>% filter(site_no != "03050000" & site_no != "03281100" & site_no != "03450000" & site_no != "03187500" & site_no != "01613050" & site_no != "03159540")
+
+QdatXgaps <- QdatXgaps %>% mutate(Year = year(Date))
+
+#flashiness index by year
+FlashinessAnnual <- QdatXgaps %>% group_by(site_no, Year) %>%
+  summarize(Flashiness = RBIcalc(Flow))
+
+FlashinessAnnual <- left_join(FlashinessAnnual, AppGagesSlim, by = c("site_no" = "STAID"))
+
+#average annual flashiness index
+FlashinessMean <- FlashinessAnnual %>% group_by(site_no) %>%
+  summarize(Flashiness = mean(Flashiness))
+
+#join to attributes
+FlashinessMean <- inner_join(FlashinessMean, AppGagesSlim, by = c("site_no" = "STAID"))
+
+write_csv(FlashinessMean, "FlashinessMean.csv")
+write_csv(FlashinessAnnual, "FlashinessAnnual.csv")
+```
+
+Flashiness statistical significance
+
+P \< 2 x 10\^-16
+
+```{r}
+flashANOVA <- aov(Flashiness ~ PROVINCE, data = FlashinessAnnual)
+
+summary(flashANOVA)
+```
+
+Flashiness Trend
+
+```{r}
+#create column for decades
+FlashinessAnnual <- FlashinessAnnual %>% 
+  mutate(Decade = case_when(Year <= 1990 ~ "1980s",
+                            Year >1990 & Year <= 2000 ~ "1990s",
+                            Year > 2000 ~ "2000s"))
+
+#mean flashiness in decade intervals
+FlashinessDecades <- FlashinessAnnual %>% group_by(site_no, Decade) %>%
+  summarize(MeanFlashiness = mean(Flashiness))
+
+#percent change in 2000s mean vs. 1980s mean
+FlashinessChange <- FlashinessDecades %>% group_by(site_no) %>%
+  summarize(PercentChange = 100 * (MeanFlashiness[3] - MeanFlashiness[1]) / MeanFlashiness[1])
+
+#join to attributes
+FlashinessChange <- left_join(FlashinessChange, AppGagesSlim, by = c("site_no" = "STAID"))
+```
+
+WS characteristics linear regressions: BFI
+
+```{r}
+lmBFIvsTWI <- lm(BFI_AVE ~ TOPWET, data = WSfactorsLarge)
+testLM <- summary(lmBFIvsTWI)
+
+lmBFIvsCLAY <- lm(BFI_AVE ~ CLAYAVE, data = WSfactorsLarge)
+summary(lmBFIvsCLAY)
+
+lmBFIvsSAND <- lm(BFI_AVE ~ SANDAVE, data = WSfactorsLarge)
+summary(lmBFIvsSAND)
+
+lmBFIvsDEPTH <- lm(BFI_AVE ~ ROCKDEPAVE, data = WSfactorsLarge)
+summary(lmBFIvsDEPTH)
+
+lmBFIvsAWC <- lm(BFI_AVE ~ AWCAVE, data = WSfactorsLarge)
+summary(lmBFIvsAWC)
+
+lmBFIvsPERM <- lm(BFI_AVE ~ PERMAVE, data = WSfactorsLarge)
+summary(lmBFIvsPERM)
+
+
+lm_eqn <- function(y, x){
+    m <- lm(y ~ x, WSfactorsLarge);
+    eq <- substitute(italic(y) == a + b %.% italic(x)*","~~italic(r)^2~"="~r2*","~~italic("p")~"="~p, 
+         list(a = format(unname(coef(m)[1]), digits = 2),
+              b = format(unname(coef(m)[2]), digits = 2),
+             r2 = format(summary(m)$r.squared, digits = 3),
+             p = format(summary(m)$coefficients[8], digits = 3)))
+    as.character(as.expression(eq));
+}
+
+lm_eqn(WSfactorsLarge$BFI_AVE, WSfactorsLarge$TOPWET)
+```
