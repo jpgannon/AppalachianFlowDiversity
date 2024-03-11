@@ -300,4 +300,6 @@ plot(density(app_gauges$q5, na.rm = TRUE))
 
 plot(density(camels_joined$q95, na.rm = TRUE))
 plot(density(app_gauges$q95, na.rm = TRUE))
+
+
 ```
