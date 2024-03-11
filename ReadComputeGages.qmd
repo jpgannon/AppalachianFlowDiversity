@@ -64,7 +64,50 @@ head(camels_hydro)
 
 ```
 
-\
+## RBI and Mean Annual Discharge
+
+```{r}
+
+#Read in CONUS daily flow gages
+q_data  <-  read.csv("C:/Users/Logan/Desktop/College/Coursework/Junior Year/Research Project/data/CONUS_qdv.csv")
+
+# Turn gauge id column from number to character
+q_data$gauge_id <- as.character(q_data$gauge_id)
+
+# Add zero to gauge id ONLY IF the length is < 8
+q_data$gauge_id <- ifelse(nchar(DailyQ$gauge_id) < 8, paste0("0", DailyQ$gauge_id), DailyQ$gauge_id)
+
+#Group by gauge id, lag flow by one day
+RBI <-  q_data %>% 
+  group_by(gauge_id) %>% 
+  mutate(discharge_change = Qmm_day - lag(Qmm_day, default = first(Qmm_day)),
+         abs_discharge_change = abs(discharge_change)) %>% 
+summarize(RBI = sum(abs_discharge_change, na.rm = TRUE)/sum(Qmm_day)) 
+
+RBI$gauge_id <- as.character(RBI$gauge_id)
+
+RBI$gauge_id <- ifelse(nchar(RBI$gauge_id) < 8, paste0("0", RBI$gauge_id), RBI$gauge_id)
+
+#Join RBI data to camels_hydro data
+camels_rbi <- left_join(camels_hydro, RBI, by = "gauge_id")
+
+# Check data for NA's
+find_NA_lines <- function(data, column_name) {
+  na_lines <- which(is.na(data[[column_name]]))
+  return(na_lines)
+}
+
+NA_lines <- find_NA_lines(RBI, "RBI")
+
+#Write out dataframe with RBI and gauge ID
+write_csv(RBI, "CAMELS Data/camels_rbi.csv")
+
+#Write out joined file (camels_hydro + camels_rbi)
+write_csv(camels_rbi, "CAMELS Data/camels_hydro_rbi.csv")
+
+```
+
+## Combining USGS Data with CAMELS:
 
 ```{r}
 ##### reading in USGS with CAMELS 
@@ -94,11 +137,15 @@ camels_final = rbindlist(list(camels_joined,app_gauges_CONUS))
 
 ```
 
+```{r}
+
+```
+
 ## Creating Study Area Maps
 
-sf_use_s2(TRUE)
-
 ```{r}
+
+sf_use_s2(TRUE)
 
 App_regions = st_read("Data/Shapefiles/AppalachianRegions.shp")
 #GagesII = st_read("Data/Shapefiles/gagesII_9322_sept30_2011.shp")
@@ -300,6 +347,4 @@ plot(density(app_gauges$q5, na.rm = TRUE))
 
 plot(density(camels_joined$q95, na.rm = TRUE))
 plot(density(app_gauges$q95, na.rm = TRUE))
-
-
 ```
