@@ -4,11 +4,11 @@ library(purrr)
 library(fs)
 
 # Get vector of character gauge_id's from data
-gauge_ids <- AppGages$gauge_id
+gauge_ids <- camels_all$gauge_id
 
 # Change to your directory, wherever you've saved the CAMELS data
 # Should have a root directory of 'usgs_streamflow'
-dir <- "change / this /usgs_streamflow"
+dir <- "D:/Gannon Research/Timeseries Data/basin_timeseries_v1p2_metForcing_obsFlow.zip/basin_dataset_public_v1p2/usgs_streamflow"
 
 # Get a list of all text files in the directory and its subdirectories
 all_files <- list.files(path = dir, pattern = "\\.txt$", full.names = TRUE, recursive = TRUE)
