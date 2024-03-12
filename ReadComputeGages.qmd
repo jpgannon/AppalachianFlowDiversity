@@ -69,7 +69,7 @@ head(camels_hydro)
 ```{r}
 
 #Read in CONUS daily flow gages
-q_data  <-  read.csv("C:/Users/Logan/Desktop/College/Coursework/Junior Year/Research Project/data/CONUS_qdv.csv")
+q_data  <-  read.csv("C:/Users/Logan/Desktop/College/Coursework/Junior Year/Research Project/data/CAMELS_qdv.csv")
 
 # Turn gauge id column from number to character
 q_data$gauge_id <- as.character(q_data$gauge_id)
@@ -106,7 +106,7 @@ summarize(Qmean_mm_yr = mean(Qmm_day))
 
 #Join data to camels_hydro data
 camels_all <- left_join(camels_all, RBI, by = "gauge_id")
-camels_al <- left_join(camels_all,mean_annual_discharge, by = "gauge_id")
+camels_all <- left_join(camels_all,mean_annual_discharge, by = "gauge_id")
 
 #Write out dataframe with RBI and gauge ID
 #computed_metrics = left_join(RBI, mean_annual_discharge, by = "gauge_id")
@@ -151,11 +151,11 @@ camels_final = rbindlist(list(camels_joined,app_gauges_CONUS))
 
 ```
 
-## Creating Study Area Maps
-
-```{r}
+## Creating Study Area Map
 
 sf_use_s2(TRUE)
+
+```{r}
 
 App_regions = st_read("Data/Shapefiles/AppalachianRegions.shp")
 #GagesII = st_read("Data/Shapefiles/gagesII_9322_sept30_2011.shp")
@@ -294,36 +294,6 @@ ggplot(data=camels_final,aes(x=CONUS,y=q5))+
 
 ggplot(data=camels_final,aes(x=CONUS,y=q95))+
   geom_boxplot()+
-  ##ggtitle()+
-  xlab("Region")+
-  ylab("High Flow (95%)")
-
-########
-
-ggplot(data=camels_final,aes(x=CONUS,y=baseflow_index))+
-  geom_boxplot()+
-  scale_y_log10()+
-  ##ggtitle()+
-  xlab("Region")+
-  ylab("BFI")
-
-ggplot(data=camels_final,aes(x=CONUS,y=runoff_ratio))+
-  geom_boxplot()+
-  scale_y_log10()+
-  ##ggtitle()+
-  xlab("Region")+
-  ylab("Runoff Ratio")
-
-ggplot(data=camels_final,aes(x=CONUS,y=q5))+
-  geom_boxplot()+
-  scale_y_log10()+
-  ##ggtitle()+
-  xlab("Region")+
-  ylab("Low Flow (5%)")
-
-ggplot(data=camels_final,aes(x=CONUS,y=q95))+
-  geom_boxplot()+
-  scale_y_log10()+
   ##ggtitle()+
   xlab("Region")+
   ylab("High Flow (95%)")
