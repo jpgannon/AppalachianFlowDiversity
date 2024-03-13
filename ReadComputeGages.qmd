@@ -14,6 +14,7 @@ Quarto markdown to read in gages from CAMELS data set, compute hydrologic signat
 library(tidyverse)
 library(ggforce)
 library(ggplot2)
+library(gridExtra)
 library(lubridate)
 library(dplyr)
 library(readr)
@@ -107,6 +108,8 @@ summarize(Qmean_mm_yr = mean(Qmm_day))
 #Join data to camels_hydro data
 camels_all <- left_join(camels_all, RBI, by = "gauge_id")
 camels_all <- left_join(camels_all,mean_annual_discharge, by = "gauge_id")
+
+write.csv(camels_all,"C:\\Users\\Logan\\Desktop\\College\\Coursework\\Junior Year\\Second Semester\\Analysis in GIS\\ESDA\\ESDA\\camels_all.csv")
 
 #Write out dataframe with RBI and gauge ID
 #computed_metrics = left_join(RBI, mean_annual_discharge, by = "gauge_id")
@@ -265,6 +268,12 @@ boxplot(camels_final$q5~camels_final$CONUS,xlab="Region",ylab="Low Flow (5%)")
 
 boxplot(camels_final$q95~camels_final$CONUS,xlab="Region",ylab="High Flow (95%)")
 
+par(mfcol=c(1,4))
+
+boxplot(camels_final$q_mean~camels_final$CONUS,xlab="Region",ylab="Mean Daily Discharge")
+
+boxplot(camels_final$RBI~camels_final$CONUS,xlab="Region",ylab="RBI")
+
 ## ggplot boxplots
 
 ##example
@@ -274,42 +283,97 @@ boxplot(camels_final$q95~camels_final$CONUS,xlab="Region",ylab="High Flow (95%)"
 
 par(mfcol=c(1,1))
 
-ggplot(data=camels_final,aes(x=CONUS,y=baseflow_index))+
+baseflow <- ggplot(data=camels_final,aes(x=CONUS,y=baseflow_index))+
   geom_boxplot()+
   ##ggtitle()+
   xlab("Region")+
-  ylab("BFI")
+  ylab("BFI")+
+  geom_boxplot(fill="grey")+
+  theme(
+  axis.ticks = element_line(color = "black", size = 0.5),
+  panel.grid.major = element_line(color = "black", linetype = "dashed", size = 0.25),
+  panel.grid.minor = element_line(color = "black", linetype = "dashed", size = 0.25)
+  )
 
-ggplot(data=camels_final,aes(x=CONUS,y=runoff_ratio))+
+runoff_ratio <- ggplot(data=camels_final,aes(x=CONUS,y=runoff_ratio))+
   geom_boxplot()+
   ##ggtitle()+
   xlab("Region")+
-  ylab("Runoff Ratio")
+  ylab("Runoff Ratio")+
+  geom_boxplot(fill="grey")+
+  theme(
+  axis.ticks = element_line(color = "black", size = 0.5),
+  panel.grid.major = element_line(color = "black", linetype = "dashed", size = 0.25),
+  panel.grid.minor = element_line(color = "black", linetype = "dashed", size = 0.25)
+  )
 
-ggplot(data=camels_final,aes(x=CONUS,y=q5))+
+q5 <- ggplot(data=camels_final,aes(x=CONUS,y=q5))+
   geom_boxplot()+
   ##ggtitle()+
   xlab("Region")+
-  ylab("Low Flow (5%)")
+  ylab("Low Flow (5%)")+
+  geom_boxplot(fill="grey")+
+  theme(
+  axis.ticks = element_line(color = "black", size = 0.5),
+  panel.grid.major = element_line(color = "black", linetype = "dashed", size = 0.25),
+  panel.grid.minor = element_line(color = "black", linetype = "dashed", size = 0.25)
+  )
 
-ggplot(data=camels_final,aes(x=CONUS,y=q95))+
+q95 <- ggplot(data=camels_final,aes(x=CONUS,y=q95))+
   geom_boxplot()+
   ##ggtitle()+
   xlab("Region")+
-  ylab("High Flow (95%)")
+  ylab("High Flow (95%)")+
+  geom_boxplot(fill="grey")+
+  theme(
+  axis.ticks = element_line(color = "black", size = 0.5),
+  panel.grid.major = element_line(color = "black", linetype = "dashed", size = 0.25),
+  panel.grid.minor = element_line(color = "black", linetype = "dashed", size = 0.25)
+  )
+
+q_mean <- ggplot(data=camels_final,aes(x=CONUS,y=q_mean))+
+  xlab("Region")+
+  ylab("Mean Daily Discharge")+
+  geom_boxplot(fill="grey")+
+  theme(
+  axis.ticks = element_line(color = "black", size = 0.5),
+  panel.grid.major = element_line(color = "black", linetype = "dashed", size = 0.25),
+  panel.grid.minor = element_line(color = "black", linetype = "dashed", size = 0.25)
+  )
+
+RBI <- ggplot(data=camels_final,aes(x=CONUS,y=RBI))+
+  xlab("Region")+
+  ylab("RBI")+
+  geom_boxplot(fill="grey")+
+  theme(
+  axis.ticks = element_line(color = "black", size = 0.5),
+  panel.grid.major = element_line(color = "black", linetype = "dashed", size = 0.25),
+  panel.grid.minor = element_line(color = "black", linetype = "dashed", size = 0.25)
+  )
+
+#start a pdf file
+pdf("four_plots.pdf")
+
+#arrange the plots on the pdf Page
+
+grid.arrange(baseflow,runoff_ratio,q5,q95,ncol=4)
+
+#dev.off(four_plots.pdf)
+
+pdf("two_plots.pdf")
+
+grid.arrange(q_mean, RBI,ncol=2)
+
+#dev.off(two_plots.pdf)
+  
 
 ### aes sets x and y variables
 ### make new column in CAMELS with new variable Appregions "yes" or "no"
 ### use mutate and case_when to create new columb with logic statement
 
-
-boxplot(camels_joined$baseflow_index, main="Baseflow Index across CONUS")
-
-boxplot(camels_joined$baseflow_index~camels_joined$DIVISION, main="Baseflow Index Across CONUS",xlab="Division",ylab="BFI",col=c("blue","green","red","gold","purple","pink","lemonchiffon","lightblue","orange"))
-
 ```
 
-Distribution Curves
+Distribution Curves and Statistical Tests
 
 ```{r}
 ####histograms
