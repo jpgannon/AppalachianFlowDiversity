@@ -285,6 +285,7 @@ par(mfcol=c(1,1))
 
 baseflow <- ggplot(data=camels_final,aes(x=CONUS,y=baseflow_index))+
   geom_boxplot()+
+  coord_flip()+
   ##ggtitle()+
   xlab("Region")+
   ylab("BFI")+
@@ -297,6 +298,7 @@ baseflow <- ggplot(data=camels_final,aes(x=CONUS,y=baseflow_index))+
 
 runoff_ratio <- ggplot(data=camels_final,aes(x=CONUS,y=runoff_ratio))+
   geom_boxplot()+
+  coord_flip()+
   ##ggtitle()+
   xlab("Region")+
   ylab("Runoff Ratio")+
@@ -309,6 +311,7 @@ runoff_ratio <- ggplot(data=camels_final,aes(x=CONUS,y=runoff_ratio))+
 
 q5 <- ggplot(data=camels_final,aes(x=CONUS,y=q5))+
   geom_boxplot()+
+  coord_flip()+
   ##ggtitle()+
   xlab("Region")+
   ylab("Low Flow (5%)")+
@@ -321,6 +324,7 @@ q5 <- ggplot(data=camels_final,aes(x=CONUS,y=q5))+
 
 q95 <- ggplot(data=camels_final,aes(x=CONUS,y=q95))+
   geom_boxplot()+
+  coord_flip()+
   ##ggtitle()+
   xlab("Region")+
   ylab("High Flow (95%)")+
@@ -332,6 +336,8 @@ q95 <- ggplot(data=camels_final,aes(x=CONUS,y=q95))+
   )
 
 q_mean <- ggplot(data=camels_final,aes(x=CONUS,y=q_mean))+
+  geom_boxplot()+
+  coord_flip()+
   xlab("Region")+
   ylab("Mean Daily Discharge")+
   geom_boxplot(fill="grey")+
@@ -342,6 +348,8 @@ q_mean <- ggplot(data=camels_final,aes(x=CONUS,y=q_mean))+
   )
 
 RBI <- ggplot(data=camels_final,aes(x=CONUS,y=RBI))+
+  geom_boxplot()+
+  coord_flip()+
   xlab("Region")+
   ylab("RBI")+
   geom_boxplot(fill="grey")+
@@ -356,15 +364,15 @@ pdf("four_plots.pdf")
 
 #arrange the plots on the pdf Page
 
-grid.arrange(baseflow,runoff_ratio,q5,q95,ncol=4)
+grid.arrange(baseflow,runoff_ratio,q5,q95,nrow=4)
 
-#dev.off(four_plots.pdf)
+dev.off()
 
 pdf("two_plots.pdf")
 
-grid.arrange(q_mean, RBI,ncol=2)
+grid.arrange(q_mean, RBI,nrow=2)
 
-#dev.off(two_plots.pdf)
+dev.off()
   
 
 ### aes sets x and y variables
