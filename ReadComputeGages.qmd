@@ -31,6 +31,11 @@ library(tmap)
 library(tmaptools)
 library(mapview)
 
+#Mapping Packages
+library(viridis)
+library(RColorBrewer)
+library(patchwork)
+
 ```
 
 ## Read in gauges from CAMELS dataset:
@@ -70,9 +75,18 @@ head(camels_hydro)
 ```{r}
 
 #Read in CONUS daily flow gages
+
 q_data  <-  read.csv("C:/Users/Logan/Desktop/College/Coursework/Junior Year/Research Project/data/CAMELS_qdv.csv")
 
+q_data$date <- as.Date(q_data$date)
+
+q_data <- q_data %>%
+  filter(date >= as.Date("1989-10-01") & date <= as.Date("2009-09-30"))
+
 # Turn gauge id column from number to character
+
+#q_data = DailyQ
+
 q_data$gauge_id <- as.character(q_data$gauge_id)
 
 # Add zero to gauge id ONLY IF the length is < 8
@@ -97,19 +111,23 @@ find_NA_lines <- function(data, column_name) {
 
 NA_lines <- find_NA_lines(RBI, "RBI")
 
+###Join to camels_all
+
+camels_all = right_join(RBI, camels_all, by=c('gauge_id'))
+
 ### Mean Annual Discharge
 
 
-mean_annual_discharge = q_data %>%
-  group_by(gauge_id) %>%
-summarize(Qmean_mm_yr = mean(Qmm_day))
+#mean_annual_discharge = q_data %>%
+  #group_by(gauge_id) %>%
+#summarize(Qmean_mm_yr = mean(Qmm_day))
 
 
 #Join data to camels_hydro data
-camels_all <- left_join(camels_all, RBI, by = "gauge_id")
-camels_all <- left_join(camels_all,mean_annual_discharge, by = "gauge_id")
+#camels_all <- left_join(camels_all, RBI, by = "gauge_id")
+#camels_all <- left_join(camels_all,mean_annual_discharge, by = "gauge_id")
 
-write.csv(camels_all,"C:\\Users\\Logan\\Desktop\\College\\Coursework\\Junior Year\\Second Semester\\Analysis in GIS\\ESDA\\ESDA\\camels_all.csv")
+#write.csv(camels_all,"C:\\Users\\Logan\\Desktop\\College\\Coursework\\Junior Year\\Second Semester\\Analysis in GIS\\ESDA\\ESDA\\camels_all.csv")
 
 #Write out dataframe with RBI and gauge ID
 #computed_metrics = left_join(RBI, mean_annual_discharge, by = "gauge_id")
@@ -133,19 +151,20 @@ camels_joined = right_join(USGS_select, camels_all, by=c('SOURCE_FEA'='gauge_id'
 
 #### case_when()
 
-camels_joined = mutate(camels_joined, CONUS = case_when(
-  DIVISION == "APPALACHIAN HIGHLANDS" ~ "APPS", TRUE ~ "CONUS"))
+camels_joined = mutate(camels_joined, CONUS = "CONUS")
+
+#camels_joined = mutate(camels_joined, CONUS = case_when(
+  #DIVISION != "APPALACHIAN HIGHLANDS" ~ "CONUS", TRUE ~ "CONUS"))
 
 head(camels_joined)
   
-app_gauges = filter(camels_joined, DIVISION == "APPALACHIAN HIGHLANDS")
-app_gauges_CONUS = app_gauges
-app_gauges_CONUS$CONUS[app_gauges_CONUS$CONUS == "APPS"] <- "CONUS"
+app_gauges = filter(camels_joined, DIVISION == "APPALACHIAN HIGHLANDS" & PROVINCE != "NEW ENGLAND" & PROVINCE != "ADIRONDACK" & PROVINCE != "ST. LAWRENCE VALLEY")
+app_gauges$CONUS[app_gauges$CONUS == "CONUS"] <- "APPS"
 ##View(app_gauges_CONUS)
 
-camels_final = rbindlist(list(camels_joined,app_gauges_CONUS))
+camels_final = rbindlist(list(camels_joined,app_gauges))
 
-#write.csv(camels_final,"C:\\Users\\Logan\\Desktop\\College\\Coursework\\Junior Year\\Second Semester\\Analysis in GIS\\ESDA\\ESDA\\camels_final.csv")
+write.csv(camels_final,"C:/Users/Logan/Desktop/College/Coursework/Junior Year/Research Project/data/camels_final.csv")
 
 
 ```
@@ -164,7 +183,10 @@ App_regions = st_read("Data/Shapefiles/AppalachianRegions.shp")
 #GagesII = st_read("Data/Shapefiles/gagesII_9322_sept30_2011.shp")
 physio_regions = st_read("Data/Shapefiles/physio.shp")
 watersheds = st_read("Mapping Data/small_ws")
-states = st_read("Mapping Data/cb_2018_us_state_20m")
+states = st_read("Mapping Data/cb_2018_us_state_20m") |>
+  filter(NAME != "Alaska",
+         NAME != "Hawaii",
+         NAME != "Puerto Rico")
 
 ####select mean annual discharge, mean winter discharge, mean summer discharge, high flow (90%), low flow (10%), BFI, runoff ratio, and RBI
 
@@ -185,6 +207,90 @@ tmap_mode("plot")
 
 tmap_options(check.and.fix = TRUE)
 
+###maps with Lindsey code
+
+USgages_BFI <- 
+  tm_shape(camels_joined)+
+  tm_dots(col = "baseflow_index", palette = "viridis", size = 0.25, title = "Baseflow Index") + # controls symbology: what field, color, size
+  tm_shape(states)+ # add states in background
+  tm_borders() +
+  tm_layout(legend.title.size = 1,
+            legend.text.size = 0.6,
+            legend.position = c("right","bottom"),
+            legend.bg.color = "white",
+            legend.bg.alpha = 1, 
+            main.title = "US Gages - CAMELS BFI",
+            title.position = c("right","top")) # positioning
+
+USgages_BFI
+
+USgages_BFI2 <- 
+  tm_shape(camels_joined)+
+  tm_dots(col = "baseflow_index", palette = "viridis", size = 0.15, title = "Baseflow Index") + 
+  tm_shape(states)+ # add states in background
+  tm_borders() +
+  tm_layout(legend.title.size = 1,
+            legend.text.size = 0.6,
+            legend.position = c("right","bottom"),
+            legend.bg.color = "white",
+            legend.bg.alpha = 1)
+
+USgages_Q5 <- 
+  tm_shape(camels_joined)+
+  tm_dots(col = "q5", palette = "viridis", size = 0.15, title = "Low Flow (Q5)") + 
+  tm_shape(states)+ # add states in background
+  tm_borders() +
+  tm_layout(legend.title.size = 1,
+            legend.text.size = 0.6,
+            legend.position = c("right","bottom"),
+            legend.bg.color = "white",
+            legend.bg.alpha = 1)                            
+
+USgages_Q95 <- 
+  tm_shape(camels_joined)+
+  tm_dots(col = "q95", palette = "viridis", size = 0.15, title = "High Flow (Q95)") + 
+  tm_shape(states)+ # add states in background
+  tm_borders() +
+  tm_layout(legend.title.size = 1,
+            legend.text.size = 0.6,
+            legend.position = c("right","bottom"),
+            legend.bg.color = "white",
+            legend.bg.alpha = 1)
+
+USgages_Qmean <- 
+  tm_shape(camels_joined)+
+  tm_dots(col = "q_mean", palette = "viridis", size = 0.15, title = "Mean Flow") + 
+  tm_shape(states)+ # add states in background
+  tm_borders() +
+  tm_layout(legend.title.size = 1,
+            legend.text.size = 0.6,
+            legend.position = c("right","bottom"),
+            legend.bg.color = "white",
+            legend.bg.alpha = 1)
+
+Conus_Maps <- tmap_arrange(USgages_BFI2, USgages_Qmean, USgages_Q5, USgages_Q95, nrow = 2, ncol = 2)
+Conus_Maps
+
+#Mapping with polygons and points:
+SAM_map <- 
+  tm_shape(states) +
+  tm_borders() +
+  tm_shape(App_regions) +
+  tm_fill("gray90", alpha = 0.75)+
+  tm_shape(camels_joined)+
+  tm_dots(size = 0.08, title = "CONUS Gages", legend.show = FALSE) +
+  tm_shape(app_gauges) +
+  tm_dots(col = "firebrick1", size = 0.1, title = "Southern Appalachian Gages") +
+  tm_layout(legend.title.size = 1,
+            legend.text.size = 0.6,
+            legend.position = c("right","bottom"),
+            legend.bg.color = "white",
+            legend.bg.alpha = 1) +
+tm_layout(title="CAMELS Gauges", title.position=c("center","top"))
+
+SAM_map
+
+####original Maps
 
 tm_shape(camels_mapping)+
   tm_dots(col="blue")+
@@ -250,11 +356,6 @@ Creating Boxplots
 #### boxplots
 #### use ggplot instead of boxplot
 
-###Basic Statistics
-
-#summary(camels_joined$baseflow_index)
-#summary(app_gauges$baseflow_index)
-
 #####ESDA Spatial Analysis Class Boxplots
 #########select mean annual discharge, mean winter discharge, mean summer discharge, high flow (90%), low flow (10%), BFI, runoff ratio, and RBI
 
@@ -287,11 +388,13 @@ baseflow <- ggplot(data=camels_final,aes(x=CONUS,y=baseflow_index))+
   geom_boxplot()+
   coord_flip()+
   ##ggtitle()+
-  xlab("Region")+
+  xlab("")+
   ylab("BFI")+
   geom_boxplot(fill="grey")+
+  theme(panel.background = element_rect(fill = "white"))+
+  theme(panel.border = element_rect(color = "black", fill = NA, linewidth = .5))+
   theme(
-  axis.ticks = element_line(color = "black", size = 0.5),
+  axis.ticks = element_line(color = "black", linewidth = 0.25),
   panel.grid.major = element_line(color = "black", linetype = "dashed", size = 0.25),
   panel.grid.minor = element_line(color = "black", linetype = "dashed", size = 0.25)
   )
@@ -300,11 +403,13 @@ runoff_ratio <- ggplot(data=camels_final,aes(x=CONUS,y=runoff_ratio))+
   geom_boxplot()+
   coord_flip()+
   ##ggtitle()+
-  xlab("Region")+
+  xlab("")+
   ylab("Runoff Ratio")+
   geom_boxplot(fill="grey")+
+  theme(panel.background = element_rect(fill = "white"))+
+  theme(panel.border = element_rect(color = "black", fill = NA, linewidth = .5))+
   theme(
-  axis.ticks = element_line(color = "black", size = 0.5),
+  axis.ticks = element_line(color = "black", linewidth = 0.25),
   panel.grid.major = element_line(color = "black", linetype = "dashed", size = 0.25),
   panel.grid.minor = element_line(color = "black", linetype = "dashed", size = 0.25)
   )
@@ -313,11 +418,13 @@ q5 <- ggplot(data=camels_final,aes(x=CONUS,y=q5))+
   geom_boxplot()+
   coord_flip()+
   ##ggtitle()+
-  xlab("Region")+
+  xlab("")+
   ylab("Low Flow (5%)")+
   geom_boxplot(fill="grey")+
+  theme(panel.background = element_rect(fill = "white"))+
+  theme(panel.border = element_rect(color = "black", fill = NA, linewidth = .5))+
   theme(
-  axis.ticks = element_line(color = "black", size = 0.5),
+  axis.ticks = element_line(color = "black", linewidth = 0.25),
   panel.grid.major = element_line(color = "black", linetype = "dashed", size = 0.25),
   panel.grid.minor = element_line(color = "black", linetype = "dashed", size = 0.25)
   )
@@ -326,11 +433,13 @@ q95 <- ggplot(data=camels_final,aes(x=CONUS,y=q95))+
   geom_boxplot()+
   coord_flip()+
   ##ggtitle()+
-  xlab("Region")+
+  xlab("")+
   ylab("High Flow (95%)")+
   geom_boxplot(fill="grey")+
+  theme(panel.background = element_rect(fill = "white"))+
+  theme(panel.border = element_rect(color = "black", fill = NA, linewidth = .5))+
   theme(
-  axis.ticks = element_line(color = "black", size = 0.5),
+  axis.ticks = element_line(color = "black", linewidth = 0.25),
   panel.grid.major = element_line(color = "black", linetype = "dashed", size = 0.25),
   panel.grid.minor = element_line(color = "black", linetype = "dashed", size = 0.25)
   )
@@ -338,11 +447,13 @@ q95 <- ggplot(data=camels_final,aes(x=CONUS,y=q95))+
 q_mean <- ggplot(data=camels_final,aes(x=CONUS,y=q_mean))+
   geom_boxplot()+
   coord_flip()+
-  xlab("Region")+
+  xlab("")+
   ylab("Mean Daily Discharge")+
   geom_boxplot(fill="grey")+
+  theme(panel.background = element_rect(fill = "white"))+
+  theme(panel.border = element_rect(color = "black", fill = NA, linewidth = .5))+
   theme(
-  axis.ticks = element_line(color = "black", size = 0.5),
+  axis.ticks = element_line(color = "black", linewidth = 0.25),
   panel.grid.major = element_line(color = "black", linetype = "dashed", size = 0.25),
   panel.grid.minor = element_line(color = "black", linetype = "dashed", size = 0.25)
   )
@@ -350,11 +461,13 @@ q_mean <- ggplot(data=camels_final,aes(x=CONUS,y=q_mean))+
 RBI <- ggplot(data=camels_final,aes(x=CONUS,y=RBI))+
   geom_boxplot()+
   coord_flip()+
-  xlab("Region")+
+  xlab("")+
   ylab("RBI")+
   geom_boxplot(fill="grey")+
+  theme(panel.background = element_rect(fill = "white"))+
+  theme(panel.border = element_rect(color = "black", fill = NA, linewidth = .5))+
   theme(
-  axis.ticks = element_line(color = "black", size = 0.5),
+  axis.ticks = element_line(color = "black", linewidth = 0.25),
   panel.grid.major = element_line(color = "black", linetype = "dashed", size = 0.25),
   panel.grid.minor = element_line(color = "black", linetype = "dashed", size = 0.25)
   )
@@ -384,7 +497,26 @@ dev.off()
 Distribution Curves and Statistical Tests
 
 ```{r}
-####histograms
+####summary statistics
+
+
+summary(camels_joined$q_mean)
+summary(app_gauges$q_mean)
+
+summary(camels_joined$q5)
+summary(app_gauges$q5)
+
+summary(camels_joined$q95)
+summary(app_gauges$q95)
+
+summary(camels_joined$runoff_ratio)
+summary(app_gauges$runoff_ratio)
+
+summary(camels_joined$baseflow_index)
+summary(app_gauges$baseflow_index)
+
+summary(camels_joined$RBI)
+summary(app_gauges$RBI)
 
 #### density functions
 
@@ -399,4 +531,39 @@ plot(density(app_gauges$q5, na.rm = TRUE))
 
 plot(density(camels_joined$q95, na.rm = TRUE))
 plot(density(app_gauges$q95, na.rm = TRUE))
+
+### bootstrapping
+
+# Load required library
+library(boot)
+
+# Generate example datasets
+dataset1 <- as.numeric(camels_joined$RBI, na.rm = TRUE)
+dataset2 <- as.numeric(app_gauges$RBI, na.rm = TRUE)
+
+# Define function to compute Mann-Whitney U statistic
+mann_whitney_u <- function(data1, data2) {
+  wilcox.test(data1, data2, alternative = "two.sided")$statistic
+}
+
+# Define bootstrapping function
+bootstrap_func <- function(data1, data2, indices) {
+  dataset1_sample <- data1[indices]
+  dataset2_sample <- data2[sample.int(length(data2), replace = TRUE)]
+  mann_whitney_u(dataset1_sample, dataset2_sample)
+}
+
+# Perform bootstrapping
+bootstrap_results <- boot(
+  data = list(dataset1 = dataset1, dataset2 = dataset2),
+  statistic = bootstrap_func,
+  R = 1000  # Number of bootstrap samples
+)
+
+# Calculate confidence interval for the statistic
+boot_ci <- boot.ci(bootstrap_results, type = "basic")$normal
+
+# Print the results
+print(boot_ci)
+
 ```

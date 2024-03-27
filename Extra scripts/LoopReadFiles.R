@@ -2,13 +2,14 @@
 #install.packages("fs)
 library(purrr)
 library(fs)
+library(tidyverse)
 
 # Get vector of character gauge_id's from data
 gauge_ids <- camels_all$gauge_id
 
 # Change to your directory, wherever you've saved the CAMELS data
 # Should have a root directory of 'usgs_streamflow'
-dir <- "D:/Gannon Research/Timeseries Data/basin_timeseries_v1p2_metForcing_obsFlow.zip/basin_dataset_public_v1p2/usgs_streamflow"
+dir <- "D:/Gannon Research/Timeseries Data/basin_dataset_public_v1p2/usgs_streamflow"
 
 # Get a list of all text files in the directory and its subdirectories
 all_files <- list.files(path = dir, pattern = "\\.txt$", full.names = TRUE, recursive = TRUE)
@@ -44,7 +45,28 @@ DailyQ <- DailyQ |>
   mutate(date = dmy(paste(day, month, year))) |> 
   dplyr:: select(-year, -month, -day)
 
+#Filter out days by applicable water year
+
+DailyQ$date <- as.Date(DailyQ$date)
+
+DailyQ <- DailyQ %>%
+  filter(date >= as.Date("1989-10-01") & date <= as.Date("2009-09-30"))
+
 # Might want to write out this big CSV here!
 
 DailyQ$gauge_id <- as.character(DailyQ$gauge_id) 
 DailyQ$gauge_id <- paste0("0", DailyQ$gauge_id)
+
+## Join USGS Area2 data
+
+USGS = st_read("C:\\Users\\Logan\\Desktop\\College\\Coursework\\Junior Year\\Research Project\\data\\Gages_physio shp")
+
+USGS1 = select(USGS, SOURCE_FEA, AREA)
+
+DailyQ = left_join(DailyQ, USGS1, by=c("gauge_id"="SOURCE_FEA"))
+
+## Convert to Qmm_day
+
+DailyQ <- DailyQ |> 
+  mutate(Qmm_day = 2.447 * q / AREA) |>
+  dplyr:: select(-geometry)
