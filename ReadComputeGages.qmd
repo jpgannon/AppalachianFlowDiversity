@@ -20,6 +20,7 @@ library(dplyr)
 library(readr)
 library(data.table)
 library(leaflet)
+library(car)
 
 
 #USGS package with flow info
@@ -153,18 +154,30 @@ camels_joined = right_join(USGS_select, camels_all, by=c('SOURCE_FEA'='gauge_id'
 
 camels_joined = mutate(camels_joined, CONUS = "CONUS")
 
-#camels_joined = mutate(camels_joined, CONUS = case_when(
-  #DIVISION != "APPALACHIAN HIGHLANDS" ~ "CONUS", TRUE ~ "CONUS"))
+camels_final <- camels_joined %>%
+  mutate(CONUS = case_when(
+    PROVINCE == "BLUE RIDGE" ~ "APPS",
+    PROVINCE == "VALLEY AND RIDGE" ~ "APPS",
+    PROVINCE == "APPALACHIAN PLATEAUS" ~ "APPS",
+    TRUE ~ "CONUS"
+  ))
 
-head(camels_joined)
+
+#head(camels_joined)
+
+#Check that App Gauges CONUS classification works
   
-app_gauges = filter(camels_joined, DIVISION == "APPALACHIAN HIGHLANDS" & PROVINCE != "NEW ENGLAND" & PROVINCE != "ADIRONDACK" & PROVINCE != "ST. LAWRENCE VALLEY")
-app_gauges$CONUS[app_gauges$CONUS == "CONUS"] <- "APPS"
+app_gauges = filter(camels_final, CONUS == "APPS")
+conus_gauges = filter(camels_final, CONUS == "CONUS")
+
+###Code leftover from when APPS were left in the CONUS dataset and we duplicated the APPs gauges
+
+#app_gauges$CONUS[app_gauges$CONUS == "CONUS"] <- "APPS"
 ##View(app_gauges_CONUS)
 
-camels_final = rbindlist(list(camels_joined,app_gauges))
+#camels_final = rbindlist(list(camels_joined,app_gauges))
 
-write.csv(camels_final,"C:/Users/Logan/Desktop/College/Coursework/Junior Year/Research Project/data/camels_final.csv")
+#write.csv(camels_final,"C:/Users/Logan/Desktop/College/Coursework/Junior Year/Research Project/data/camels_final.csv")
 
 
 ```
@@ -194,7 +207,7 @@ states = st_read("Mapping Data/cb_2018_us_state_20m") |>
 
 ###mapping
 
-mapview(camels_joined)
+mapview(camels_final)
 
 mapview(app_gauges)
 
@@ -210,7 +223,7 @@ tmap_options(check.and.fix = TRUE)
 ###maps with Lindsey code
 
 USgages_BFI <- 
-  tm_shape(camels_joined)+
+  tm_shape(camels_final)+
   tm_dots(col = "baseflow_index", palette = "viridis", size = 0.25, title = "Baseflow Index") + # controls symbology: what field, color, size
   tm_shape(states)+ # add states in background
   tm_borders() +
@@ -225,7 +238,7 @@ USgages_BFI <-
 USgages_BFI
 
 USgages_BFI2 <- 
-  tm_shape(camels_joined)+
+  tm_shape(camels_final)+
   tm_dots(col = "baseflow_index", palette = "viridis", size = 0.15, title = "Baseflow Index") + 
   tm_shape(states)+ # add states in background
   tm_borders() +
@@ -236,7 +249,7 @@ USgages_BFI2 <-
             legend.bg.alpha = 1)
 
 USgages_Q5 <- 
-  tm_shape(camels_joined)+
+  tm_shape(camels_final)+
   tm_dots(col = "q5", palette = "viridis", size = 0.15, title = "Low Flow (Q5)") + 
   tm_shape(states)+ # add states in background
   tm_borders() +
@@ -247,7 +260,7 @@ USgages_Q5 <-
             legend.bg.alpha = 1)                            
 
 USgages_Q95 <- 
-  tm_shape(camels_joined)+
+  tm_shape(camels_final)+
   tm_dots(col = "q95", palette = "viridis", size = 0.15, title = "High Flow (Q95)") + 
   tm_shape(states)+ # add states in background
   tm_borders() +
@@ -258,7 +271,7 @@ USgages_Q95 <-
             legend.bg.alpha = 1)
 
 USgages_Qmean <- 
-  tm_shape(camels_joined)+
+  tm_shape(camels_final)+
   tm_dots(col = "q_mean", palette = "viridis", size = 0.15, title = "Mean Flow") + 
   tm_shape(states)+ # add states in background
   tm_borders() +
@@ -268,8 +281,14 @@ USgages_Qmean <-
             legend.bg.color = "white",
             legend.bg.alpha = 1)
 
-Conus_Maps <- tmap_arrange(USgages_BFI2, USgages_Qmean, USgages_Q5, USgages_Q95, nrow = 2, ncol = 2)
+Conus_Maps <- tmap_arrange(USgages_BFI, USgages_Qmean, USgages_Q5, USgages_Q95, nrow = 2, ncol = 2)
 Conus_Maps
+
+tmap_save(Conus_Maps)
+
+print(USgages_BFI)
+print(USgages_Qmean)
+print(US)
 
 #Mapping with polygons and points:
 SAM_map <- 
@@ -500,23 +519,43 @@ Distribution Curves and Statistical Tests
 ####summary statistics
 
 
-summary(camels_joined$q_mean)
+summary(conus_gauges$q_mean)
 summary(app_gauges$q_mean)
 
-summary(camels_joined$q5)
+summary(conus_gauges$q5)
 summary(app_gauges$q5)
 
-summary(camels_joined$q95)
+summary(conus_gauges$q95)
 summary(app_gauges$q95)
 
-summary(camels_joined$runoff_ratio)
+summary(conus_gauges$runoff_ratio)
 summary(app_gauges$runoff_ratio)
 
-summary(camels_joined$baseflow_index)
+summary(conus_gauges$baseflow_index)
 summary(app_gauges$baseflow_index)
 
-summary(camels_joined$RBI)
+summary(conus_gauges$RBI)
 summary(app_gauges$RBI)
+
+### variance
+
+var(conus_gauges$q_mean)
+var(app_gauges$q_mean, na.rm=TRUE)
+
+var(conus_gauges$q5)
+var(app_gauges$q5, na.rm=TRUE)
+
+var(conus_gauges$q95)
+var(app_gauges$q95, na.rm=TRUE)
+
+var(conus_gauges$runoff_ratio)
+var(app_gauges$runoff_ratio, na.rm=TRUE)
+
+var(conus_gauges$baseflow_index)
+var(app_gauges$baseflow_index, na.rm=TRUE)
+
+var(conus_gauges$RBI)
+var(app_gauges$RBI, na.rm=TRUE)
 
 #### density functions
 
@@ -532,38 +571,27 @@ plot(density(app_gauges$q5, na.rm = TRUE))
 plot(density(camels_joined$q95, na.rm = TRUE))
 plot(density(app_gauges$q95, na.rm = TRUE))
 
-### bootstrapping
+### Levene Test
 
-# Load required library
-library(boot)
+camels_final$CONUS <- as.factor(camels_final$CONUS)
 
-# Generate example datasets
-dataset1 <- as.numeric(camels_joined$RBI, na.rm = TRUE)
-dataset2 <- as.numeric(app_gauges$RBI, na.rm = TRUE)
+Levene_qmean <- leveneTest(q_mean ~ CONUS, data=camels_final, center=mean)
+print(Levene_qmean)
 
-# Define function to compute Mann-Whitney U statistic
-mann_whitney_u <- function(data1, data2) {
-  wilcox.test(data1, data2, alternative = "two.sided")$statistic
-}
+Levene_q5 <- leveneTest(q5 ~ CONUS, data=camels_final, center=mean)
+print(Levene_q5)
 
-# Define bootstrapping function
-bootstrap_func <- function(data1, data2, indices) {
-  dataset1_sample <- data1[indices]
-  dataset2_sample <- data2[sample.int(length(data2), replace = TRUE)]
-  mann_whitney_u(dataset1_sample, dataset2_sample)
-}
+Levene_q95 <- leveneTest(q95 ~ CONUS, data=camels_final, center=mean)
+print(Levene_q95)
 
-# Perform bootstrapping
-bootstrap_results <- boot(
-  data = list(dataset1 = dataset1, dataset2 = dataset2),
-  statistic = bootstrap_func,
-  R = 1000  # Number of bootstrap samples
-)
+Levene_runoff <- leveneTest(runoff_ratio ~ CONUS, data=camels_final, center=mean)
+print(Levene_runoff)
 
-# Calculate confidence interval for the statistic
-boot_ci <- boot.ci(bootstrap_results, type = "basic")$normal
+Levene_bfi <- leveneTest(baseflow_index ~ CONUS, data=camels_final, center=mean)
+print(Levene_bfi)
 
-# Print the results
-print(boot_ci)
+Levene_RBI <- leveneTest(RBI ~ CONUS, data=camels_final, center=mean)
+print(Levene_RBI)
+
 
 ```
