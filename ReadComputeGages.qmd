@@ -154,7 +154,7 @@ camels_joined = right_join(USGS_select, camels_all, by=c('SOURCE_FEA'='gauge_id'
 
 camels_joined = mutate(camels_joined, CONUS = "CONUS")
 
-camels_final <- camels_joined %>%
+camels_joined <- camels_joined %>%
   mutate(CONUS = case_when(
     PROVINCE == "BLUE RIDGE" ~ "APPS",
     PROVINCE == "VALLEY AND RIDGE" ~ "APPS",
@@ -162,20 +162,14 @@ camels_final <- camels_joined %>%
     TRUE ~ "CONUS"
   ))
 
+###Changing Variable Name and Adding APPs duplicates to CONUS dataset
 
-#head(camels_joined)
+app_gauges = filter(camels_joined, CONUS == "APPS")
 
-#Check that App Gauges CONUS classification works
-  
-app_gauges = filter(camels_final, CONUS == "APPS")
-conus_gauges = filter(camels_final, CONUS == "CONUS")
+app_gauges$CONUS[app_gauges$CONUS == "APPS"] <- "CONUS"
+View(app_gauges_CONUS)
 
-###Code leftover from when APPS were left in the CONUS dataset and we duplicated the APPs gauges
-
-#app_gauges$CONUS[app_gauges$CONUS == "CONUS"] <- "APPS"
-##View(app_gauges_CONUS)
-
-#camels_final = rbindlist(list(camels_joined,app_gauges))
+camels_final = rbindlist(list(camels_joined,app_gauges))
 
 #write.csv(camels_final,"C:/Users/Logan/Desktop/College/Coursework/Junior Year/Research Project/data/camels_final.csv")
 
@@ -519,42 +513,42 @@ Distribution Curves and Statistical Tests
 ####summary statistics
 
 
-summary(conus_gauges$q_mean)
+summary(camels_joined$q_mean)
 summary(app_gauges$q_mean)
 
-summary(conus_gauges$q5)
+summary(camels_joined$q5)
 summary(app_gauges$q5)
 
-summary(conus_gauges$q95)
+summary(camels_joined$q95)
 summary(app_gauges$q95)
 
-summary(conus_gauges$runoff_ratio)
+summary(camels_joined$runoff_ratio)
 summary(app_gauges$runoff_ratio)
 
-summary(conus_gauges$baseflow_index)
+summary(camels_joined$baseflow_index)
 summary(app_gauges$baseflow_index)
 
-summary(conus_gauges$RBI)
+summary(camels_joined$RBI)
 summary(app_gauges$RBI)
 
 ### variance
 
-var(conus_gauges$q_mean)
+var(camels_joined$q_mean, na.rm=TRUE)
 var(app_gauges$q_mean, na.rm=TRUE)
 
-var(conus_gauges$q5)
+var(camels_joined$q5,na.rm=TRUE)
 var(app_gauges$q5, na.rm=TRUE)
 
-var(conus_gauges$q95)
+var(camels_joined$q95,na.rm=TRUE)
 var(app_gauges$q95, na.rm=TRUE)
 
-var(conus_gauges$runoff_ratio)
+var(camels_joined$runoff_ratio,na.rm=TRUE)
 var(app_gauges$runoff_ratio, na.rm=TRUE)
 
-var(conus_gauges$baseflow_index)
+var(camels_joined$baseflow_index,na.rm=TRUE)
 var(app_gauges$baseflow_index, na.rm=TRUE)
 
-var(conus_gauges$RBI)
+var(camels_joined$RBI,na.rm=TRUE)
 var(app_gauges$RBI, na.rm=TRUE)
 
 #### density functions
