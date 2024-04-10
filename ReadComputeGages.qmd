@@ -217,63 +217,95 @@ tmap_options(check.and.fix = TRUE)
 ###maps with Lindsey code
 
 USgages_BFI <- 
-  tm_shape(camels_final)+
-  tm_dots(col = "baseflow_index", palette = "viridis", size = 0.25, title = "Baseflow Index") + # controls symbology: what field, color, size
+  tm_shape(camels_joined)+
+  tm_dots(col = "baseflow_index", palette = "viridis", size = 0.15, title = "Baseflow Index") + # controls symbology: what field, color, size
   tm_shape(states)+ # add states in background
   tm_borders() +
   tm_layout(legend.title.size = 1,
             legend.text.size = 0.6,
             legend.position = c("right","bottom"),
-            legend.bg.color = "white",
+            title.position = c("center","top"),
+            #legend.bg.color = "white",
             legend.bg.alpha = 1, 
-            main.title = "US Gages - CAMELS BFI",
-            title.position = c("right","top")) # positioning
+            main.title = "Baseflow Index",
+            main.title.position = c("center","top")) # positioning
 
-USgages_BFI
 
-USgages_BFI2 <- 
-  tm_shape(camels_final)+
-  tm_dots(col = "baseflow_index", palette = "viridis", size = 0.15, title = "Baseflow Index") + 
-  tm_shape(states)+ # add states in background
-  tm_borders() +
-  tm_layout(legend.title.size = 1,
-            legend.text.size = 0.6,
-            legend.position = c("right","bottom"),
-            legend.bg.color = "white",
-            legend.bg.alpha = 1)
+#USgages_BFI2 <- 
+  #tm_shape(camels_joined)+
+  #tm_dots(col = "baseflow_index", palette = "viridis", size = 0.15, title = "Baseflow Index") + 
+  #tm_shape(states)+ # add states in background
+  #tm_borders() +
+  #tm_layout(legend.title.size = 1,
+            #legend.text.size = 0.6,
+            #legend.position = c("right","bottom"),
+            #legend.bg.color = "white",
+            #legend.bg.alpha = 1)
 
 USgages_Q5 <- 
-  tm_shape(camels_final)+
-  tm_dots(col = "q5", palette = "viridis", size = 0.15, title = "Low Flow (Q5)") + 
+  tm_shape(camels_joined)+
+  tm_dots(col = "q5", palette = "viridis", size = 0.15, title = "") + 
   tm_shape(states)+ # add states in background
   tm_borders() +
   tm_layout(legend.title.size = 1,
             legend.text.size = 0.6,
             legend.position = c("right","bottom"),
-            legend.bg.color = "white",
-            legend.bg.alpha = 1)                            
+            #legend.bg.color = "white",
+            legend.bg.alpha = 1,
+            main.title = "Low Flow (Q5)",
+            main.title.position = c("center","top")) # positioning
 
 USgages_Q95 <- 
-  tm_shape(camels_final)+
-  tm_dots(col = "q95", palette = "viridis", size = 0.15, title = "High Flow (Q95)") + 
+  tm_shape(camels_joined)+
+  tm_dots(col = "q95", palette = "viridis", size = 0.15, title = "") + 
   tm_shape(states)+ # add states in background
   tm_borders() +
   tm_layout(legend.title.size = 1,
             legend.text.size = 0.6,
             legend.position = c("right","bottom"),
-            legend.bg.color = "white",
-            legend.bg.alpha = 1)
+            #legend.bg.color = "white",
+            legend.bg.alpha = 1,
+            main.title = "High Flow (Q95)",
+            main.title.position = c("left","top"))
 
 USgages_Qmean <- 
-  tm_shape(camels_final)+
-  tm_dots(col = "q_mean", palette = "viridis", size = 0.15, title = "Mean Flow") + 
+  tm_shape(camels_joined)+
+  tm_dots(col = "q_mean", palette = "viridis", size = 0.15, title = "") + 
   tm_shape(states)+ # add states in background
   tm_borders() +
   tm_layout(legend.title.size = 1,
             legend.text.size = 0.6,
             legend.position = c("right","bottom"),
-            legend.bg.color = "white",
-            legend.bg.alpha = 1)
+            #legend.bg.color = "white",
+            legend.bg.alpha = 1,
+            title = "Mean Flow",
+            title.position = c("right","top"))
+
+USgages_runoffratio <- 
+  tm_shape(camels_joined)+
+  tm_dots(col = "runoff_ratio", palette = "viridis", size = 0.15, title = "") + 
+  tm_shape(states)+ # add states in background
+  tm_borders() +
+  tm_layout(legend.title.size = 1,
+            legend.text.size = 0.6,
+            legend.position = c("right","bottom"),
+            #legend.bg.color = "white",
+            legend.bg.alpha = 1,
+            main.title = "Runoff Ratio",
+            main.title.position = c("left","top"))
+
+USgages_RBI <- 
+  tm_shape(camels_joined)+
+  tm_dots(col = "RBI", palette = "viridis", size = 0.15, title = "") + 
+  tm_shape(states)+ # add states in background
+  tm_borders() +
+  tm_layout(legend.title.size = 1,
+            legend.text.size = 0.6,
+            legend.position = c("right","bottom"),
+            #legend.bg.color = "white",
+            legend.bg.alpha = 1,
+            main.title = "Richards-Baker Flashiness Index",
+            main.title.position = c("left","top"))
 
 Conus_Maps <- tmap_arrange(USgages_BFI, USgages_Qmean, USgages_Q5, USgages_Q95, nrow = 2, ncol = 2)
 Conus_Maps
@@ -281,84 +313,12 @@ Conus_Maps
 tmap_save(Conus_Maps)
 
 print(USgages_BFI)
+print(USgages_Q5)
+print(USgages_Q95)
 print(USgages_Qmean)
-print(US)
+print(USgages_runoffratio)
+print(USgages_RBI)
 
-#Mapping with polygons and points:
-SAM_map <- 
-  tm_shape(states) +
-  tm_borders() +
-  tm_shape(App_regions) +
-  tm_fill("gray90", alpha = 0.75)+
-  tm_shape(camels_joined)+
-  tm_dots(size = 0.08, title = "CONUS Gages", legend.show = FALSE) +
-  tm_shape(app_gauges) +
-  tm_dots(col = "firebrick1", size = 0.1, title = "Southern Appalachian Gages") +
-  tm_layout(legend.title.size = 1,
-            legend.text.size = 0.6,
-            legend.position = c("right","bottom"),
-            legend.bg.color = "white",
-            legend.bg.alpha = 1) +
-tm_layout(title="CAMELS Gauges", title.position=c("center","top"))
-
-SAM_map
-
-####original Maps
-
-tm_shape(camels_mapping)+
-  tm_dots(col="blue")+
-  tm_shape(states)+
-  tm_borders()+
-  tm_compass(type="4star",position=c("right","bottom"))+
-  tm_scale_bar(position=c("left","bottom"))+
-  tm_layout(title="CAMELS Gauges", title.position=c("right","TOP"))
-  
-tm_shape(watersheds)+
-  tm_fill("lightblue")+
-  tm_borders()+
-  tm_shape(states)+
-  tm_borders()+
-  tm_compass(type="4star",position=c("right","bottom"))+
-  tm_scale_bar(position=c("left","bottom"))+
-  tm_layout(title="CAMELS Watersheds", title.position=c("right","TOP"))
-
-tm_shape(App_regions)+
-  tm_fill()+
-  tm_borders()+
-  tm_shape(states)+
-  tm_borders()+
-  tm_shape(filter(camels_mapping, CONUS == "APPS"))+
-  tm_dots(col="blue")+
-  tm_compass(type="4star",position=c("right","bottom"))+
-  tm_scale_bar(position=c("left","bottom"))+
-  tm_layout(title="Appalachian Gauges", title.position=c("center","TOP"))
-  
-tm_shape(App_regions)+
-  tm_fill(col="PROVINCE")+
-  tm_borders()+
-  tm_shape(app_gauges)+
-  tm_dots(col="blue")+
-  tm_shape(states)+
-  tm_borders()+
-  tm_compass(type="4star",position=c("right","bottom"))+
-  tm_scale_bar(position=c("left","bottom"))+
-  tm_layout(title="Appalachian Gauges", title.position=c("center","TOP"))
-  tm_layout(legend.position=c("left","center"))
-  
-watersheds <- watersheds %>%
-  mutate(GAGE_ID = paste0("0", hru_id))
-
-##sf_use_s2(TRUE)
-##watersheds_apps <- left_join(app_gauges,watersheds, by=c("GAGE_ID"="SOURCE_FEA"))
-  
-  tm_shape(watersheds)+
-    tm_fill("lightblue")+
-    tm_borders()+
-    tm_shape(states)+
-    tm_borders()+
-    tm_compass(type="4star",position=c("right","bottom"))+
-    tm_scale_bar(position=c("left","bottom"))+
-    tm_layout(title="CAMELS Watersheds", title.position=c("right","TOP"))
 
 
 ```
@@ -586,6 +546,19 @@ print(Levene_bfi)
 
 Levene_RBI <- leveneTest(RBI ~ CONUS, data=camels_final, center=mean)
 print(Levene_RBI)
+
+### Brown Farsythe Test
+
+#install.packages("lawstat")
+library(lawstat)
+
+APPs_bfqmean <- app_gauges[app_gauges$q_mean == "qmeanA", "value"]
+CONUS_bfqmean <- camels_joined[camels_joined$q_mean == "qmeanB", "value"]
+
+data_list <- list(APPs_bfqmean, CONUS_bfqmean)
+                  
+bftest_qmean <- bf.test(data_list)
+print(bftest_mean)
 
 
 ```

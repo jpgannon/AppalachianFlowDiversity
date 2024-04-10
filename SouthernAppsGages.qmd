@@ -41,6 +41,7 @@ tmap_mode("plot")
 theme_set(theme_classic())
 ```
 
+
 ## Read in shapefile for Appalachian physiographic region
 
 Excluding St. Lawrence Valley, New England Uplands, and Seaboard
