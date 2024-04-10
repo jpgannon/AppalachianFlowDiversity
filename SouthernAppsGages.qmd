@@ -10,33 +10,31 @@ editor_options:
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-# Site selection and data cleaning:
+# Load libraries :
 ```{r, echo=FALSE}
+#| warning: false
+
 library(tidyverse)
 library(ggforce)
-library(dataRetrieval)
 library(sf)
 library(tmap)
 library(spData)
-library(repr)
-library(zoo)
 library(lubridate)
 library(moments)
-library(broom)
-library(AICcmodavg)
 library(raster)
 library(rgdal)
 library(mapview)
 library(ranger)
-
-library(tidymodels)
-
-library(Hmisc)
-library(patchwork)
 library(ggpmisc)
 library(modelr)
+library(viridis)
+library(RColorBrewer)
+library(patchwork)
+library(corrplot)
+library(datawizard)
+library(tidymodels)
 
-tmap_mode("plot")
+tmap_mode("view")
 
 theme_set(theme_classic())
 ```
@@ -54,7 +52,7 @@ Gages from CAMELS dataset, GAGESII shapefile joined to station by Gage ID
 ```{r}
 AppRegions <- st_read("Data/Shapefiles/AppalachianRegions.shp")
 
-AppGages <- read_csv("Data/SAgages.csv")
+AppGages <- read_csv("CAMELSapps_attr.csv")
 
 AppGagesshp <- st_read("Data/SAgages.shp") 
 
@@ -67,86 +65,180 @@ tm_shape(us_states)+
   tm_borders()
 
 ProvinceMap
-head(AppGages)
 
 mapview(AppGagesshp)
 ```
-## Join watershed attributes from CAMELS dataset:
 
- - Can add more watershed characteristics here.
+## Plots:
+ - Study Area Map(s)
+ - Signature maps
 ```{r}
-WSfactors <- full_join(read_delim("CAMELS Data/camels_clim.txt"), read_delim("CAMELS Data/camels_geol.txt"), by = "gauge_id") %>%
-  full_join(read_delim("CAMELS Data/camels_soil.txt"), by = "gauge_id") %>%
-  inner_join(AppGages, by = "gauge_id")
+#join AppGages to Paramtypes shp
+AppGages_df <- AppGages %>%
+  as_data_frame()
 
-write_csv(WSfactors, "CAMELSapps_attr.csv")
+ProvinceMap <- tm_shape(AppRegions)+
+  tm_polygons(col = "PROVINCE", palette = "BuGn")+
+  tm_layout(legend.title.size = 1,
+          legend.text.size = 0.6,
+          legend.position = c("right","bottom"),
+          legend.bg.color = "white",
+          legend.bg.alpha = 1)+
+tm_shape(AppGagesshp)+
+  tm_dots(size = 0.1)+
+tm_shape(us_states)+
+  tm_borders()
+
+ProvinceMap
+
+# Create the plot using ggplot2
+BFI <- tm_shape(AppRegions) +
+  tm_fill("gray90")+
+  tm_shape(AppGagesshp) +
+  tm_dots(col = "BFI_AVE", palette = "-viridis", size = 0.3) +
+  tm_layout("BFI",
+          legend.title.size = 1,
+          legend.text.size = 0.6,
+          legend.position = c("right","bottom"),
+          legend.bg.color = "white",
+          legend.bg.alpha = 1) +
+  tm_shape(us_states) +
+  tm_borders()
+
+BFI
+
+Flash <- tm_shape(AppRegions) +
+  tm_fill("gray90")+
+  tm_shape(AppGagesshp) +
+  tm_dots(col = "Flashiness", palette = "-viridis", size = 0.3) +
+  tm_layout("Flashiness",
+          legend.title.size = 1,
+          legend.text.size = 0.6,
+          legend.position = c("right","bottom"),
+          legend.bg.color = "white",
+          legend.bg.alpha = 1) +
+  tm_shape(us_states) +
+  tm_borders()
+
+Flash
+
+TenthP <- tm_shape(AppRegions) +
+  tm_fill("gray90")+
+  tm_shape(AppGages_RF) +
+  tm_dots(col = "TenthP", palette = "-viridis", size = 0.3) +
+  tm_layout("TenthP Flow",
+          legend.title.size = 1,
+          legend.text.size = 0.6,
+          legend.position = c("right","bottom"),
+          legend.bg.color = "white",
+          legend.bg.alpha = 1) +
+  tm_shape(us_states) +
+  tm_borders()
+
+TenthP
+
+NinetiethP <- tm_shape(AppRegions) +
+  tm_fill("gray90")+
+  tm_shape(AppGages_RF) +
+  tm_dots(col = "NinetiethP", palette = "-viridis", size = 0.3) +
+  tm_layout("NinetiethP Flow",
+          legend.title.size = 1,
+          legend.text.size = 0.6,
+          legend.position = c("right","bottom"),
+          legend.bg.color = "white",
+          legend.bg.alpha = 1) +
+  tm_shape(us_states) +
+  tm_borders()
+
+NinetiethP
+
+Maps <- tmap_arrange(BFI, Flash, NinetiethP, TenthP, nrow = 2, ncol = 2)
+Maps
+
+tmap_save(Maps, "RFMaps.png")
 ```
+ 
 
-## Cleaning data for random forest
+
+## Read in and clean data for Random Forest.
+
+params: watershed characteristic data from CAMELS
+standard_p: standardized parameters, continous variables only
+signatures: signatures to predict for in RF
+
 ```{r}
-RFpredictors <- read_delim("CAMELS Data/camels_hydro.txt")|>
-  filter(gauge_id %in% AppGages$gauge_id) |>
-  na.omit()
-
-#All other CAMELS data
 params <- full_join(read_delim("CAMELS Data/camels_clim.txt"),
-                                     read_delim("CAMELS Data/camels_geol.txt"), by = "gauge_id") |>
+                    read_delim("CAMELS Data/camels_geol.txt"), by = "gauge_id") |>
   full_join(read_delim("CAMELS Data/camels_soil.txt"), by = "gauge_id") |>
   full_join(read_delim("CAMELS Data/camels_topo.txt"), by = "gauge_id") |>
   full_join(read_delim("CAMELS Data/camels_vege.txt"), by = "gauge_id") |> 
   full_join(read_delim("CAMELS Data/camels_name.txt"), by = "gauge_id")
 
-head(params)
-
-#need to remove NA's -- could either remove the gauge or the entire variable
-forRF <- params |>
+standard_p <- params |>
   filter(gauge_id %in% AppGages$gauge_id) |>
-  dplyr::select(-gauge_id, -gauge_name, -area_gages2, -area_geospa_fabric, -geol_2nd_class) |>
+  dplyr::select(-gauge_id, -gauge_name, -area_gages2, -area_geospa_fabric, -geol_2nd_class, 
+                -huc_02, gauge_name, -high_prec_timing, -low_prec_timing, - dom_land_cover, -gauge_name, -geol_1st_class, -gauge_lat, -gauge_lon) |>
+  mutate(across(where(is.character), as.factor)) |> 
   na.omit()
 
-#Match observation length to hypergrid length (model tuning)
-forRF <- forRF %>%
+standard_p <- standard_p |> 
+  standardize()
+
+signatures <- read_delim("CAMELS Data/camels_hydro_all.csv")|>
+  filter(gauge_id %in% AppGages$gauge_id) |>
+  na.omit()
+
+signatures <- signatures |> 
+  dplyr::select(q_mean, baseflow_index, q5, q95, RBI, Qmean_mm_yr, runoff_ratio)
+```
+
+# Correlation matrix and PCA
+
+```{r}
+cor_matrix <- cor(standard_p)
+
+corrplot(cor_matrix)
+
+# PCA
+pca <- prcomp(cor_matrix, scale = TRUE)
+
+pca$rotation <- -1*pca$rotation
+
+pca$rotation
+
+```
+
+Make both data frames same length, define function to bind them together.
+
+```{r}
+standard_p_slice <- standard_p %>%
   slice_tail(n = 80)
 
-RFpredictors <- RFpredictors %>%
+signatures <- signatures %>%
   slice_tail(n=80)
 
-```
-## Playing around with tidymodels
-```{r}
-# Aggregate BFI to predictors data
-forRF_BFI <- left_join(AppGages, dplyr::select(RFpredictors, gauge_id, baseflow_index), by = "gauge_id") |> 
-  dplyr::select(-baseflow_index.y) |> 
-  rename("baseflow_index" = "baseflow_index.x")
-
-
+bind_p <- function(signature, parameters) {
+  bind_cols(signature, parameters)
+}
 ```
 
+Initialize model for baseflow index (baseflow_index)
 
-
-### Prep for Model:
- - hyper_grid: possible combinations for model
- - train model, use BFI as predictor variable
 ```{r}
-# hyperparameter grid search
+# total number of combinations should be 80
 hyper_grid <- expand.grid(
-  #mtry       = seq(20, 30, by = 2), #mtry should be square of available params (35)
   mtry       = seq(3,7, by = 1),
   node_size  = seq(2,9, by = 2),
   sampe_size = c(.55, .632, .70, .80),
   OOB_RMSE   = 0
 )
 
-# total number of combinations
-nrow(hyper_grid)
-## [1] 80
-
 for(i in 1:nrow(hyper_grid)) {
   
   # train model
   model <- ranger(
-    formula         = RFpredictors$baseflow_index ~ ., #BFI is what you're trying to predict 
-    data            = forRF, #for RF is all the other parameters
+    formula         = signatures$baseflow_index ~ ., #BFI is what you're trying to predict 
+    data            = standard_p_slice, #for RF is all the other parameters
     num.trees       = 500,
     mtry            = hyper_grid$mtry[i],
     min.node.size   = hyper_grid$node_size[i],
@@ -162,16 +254,17 @@ for(i in 1:nrow(hyper_grid)) {
 hyper_grid %>% 
   dplyr::arrange(OOB_RMSE)
 ```
-# Potentially use tideymodels
-```{r}
 
+# Run optimal model for baseflow index
+
+```{r}
 OOB_RMSE <- vector(mode = "numeric", length = 100)
 
 for(i in seq_along(OOB_RMSE)) {
 
-  optimal_ranger <- ranger(
-    formula         = RFpredictors$baseflow_index ~ ., 
-    data            = forRF, 
+  optimal_ranger_bfi <- ranger(
+    formula         = signatures$baseflow_index ~ ., 
+    data            = standard_p_slice, 
     num.trees       = 500,
     mtry            = 7, #was 26
     min.node.size   = 7, #was 5
@@ -179,91 +272,36 @@ for(i in seq_along(OOB_RMSE)) {
     importance      = 'impurity'
   )
   
-  OOB_RMSE[i] <- sqrt(optimal_ranger$prediction.error)
+  OOB_RMSE[i] <- sqrt(optimal_ranger_bfi$prediction.error)
 }
 
 hist(OOB_RMSE, breaks = 20)
 
-#for perKGC plot
-BFI_importancesAll <- optimal_ranger$variable.importance %>% 
+#All importances will be added to this table:
+importancesAll_bfi <- optimal_ranger_bfi$variable.importance %>% 
       as_tibble() %>% 
-      bind_cols(names(optimal_ranger$variable.importance)) %>%
+      bind_cols(names(optimal_ranger_bfi$variable.importance)) %>%
       rename(importance = value, param = '...2') %>%
       mutate(measure = "BFI")
 
-#filter to see top variables
-BFI_tTen <- BFI_importancesAll %>%
-  arrange(desc(importance)) 
-
-BFI_tTen <- BFI_tTen[1:10,]
-
-BFI_tTen %>%
-  ggplot(aes(x = param, y = importance)) +
-  geom_bar(stat="identity")
-
-BFI_com <- intersect(colnames(forRF), BFI_tTen$param)
-
-BFI_var <- forRF |>
-  dplyr::select(BFI_com) |>
-  dplyr::select(-geol_1st_class)
-
 ```
 
+# Tune and run optimal model for mean daily discharge
 
 ```{r}
-cor_matrix <- cor(BFI_var)
-
-print(cor_matrix)
-
-# Check for missing and infinite values in the data
-any(is.na(BFI_var))
-
-forMR <- cbind(BFI_var, RFpredictors$baseflow_index)
-
-# Fit a stepwise regression model with the selected predictors
-BFI_step_model <- step(lm(forMR$`RFpredictors$baseflow_index` ~ ., data = forMR), direction = "both")
-
-# Print the model summary
-summary(BFI_step_model)
-
-BFIpred <- forMR %>%
-  add_predictions(BFI_step_model) |>
-  rename("BFI_actual" = "RFpredictors$baseflow_index")
-
-BFI <- 
-  BFIpred %>% drop_na() %>%
-  ggplot(aes(x = BFI_actual, y = pred)) +
-  geom_point() +
-  stat_poly_line(method=lm) +
-  stat_poly_eq() +
-  xlab("Actual BFI") +
-  ylab("Predicted BFI") +
-  theme_classic()
-
-BFI
-```
-
-# Predicting for q5
-```{r}
-# hyperparameter grid search
 hyper_grid <- expand.grid(
-  #mtry       = seq(20, 30, by = 2), #mtry should be square of available params (35)
   mtry       = seq(3,7, by = 1),
   node_size  = seq(2,9, by = 2),
   sampe_size = c(.55, .632, .70, .80),
   OOB_RMSE   = 0
 )
 
-# total number of combinations
-nrow(hyper_grid)
-## [1] 80
-
 for(i in 1:nrow(hyper_grid)) {
   
   # train model
   model <- ranger(
-    formula         = RFpredictors$q5 ~ ., #BFI is what you're trying to predict 
-    data            = forRF, #for RF is all the other parameters
+    formula         = signatures$q_mean ~ ., #BFI is what you're trying to predict 
+    data            = standard_p_slice, #for RF is all the other parameters
     num.trees       = 500,
     mtry            = hyper_grid$mtry[i],
     min.node.size   = hyper_grid$node_size[i],
@@ -275,17 +313,13 @@ for(i in 1:nrow(hyper_grid)) {
   hyper_grid$OOB_RMSE[i] <- sqrt(model$prediction.error)
 }
 
-#print RMSE
-hyper_grid %>% 
-  dplyr::arrange(OOB_RMSE)
-
 OOB_RMSE <- vector(mode = "numeric", length = 100)
 
 for(i in seq_along(OOB_RMSE)) {
-
-  optimal_ranger <- ranger(
-    formula         = RFpredictors$q5 ~ ., 
-    data            = forRF, 
+  
+  optimal_ranger_qm <- ranger(
+    formula         = signatures$q_mean ~ ., 
+    data            = standard_p_slice, 
     num.trees       = 500,
     mtry            = 7, #was 26
     min.node.size   = 7, #was 5
@@ -293,85 +327,36 @@ for(i in seq_along(OOB_RMSE)) {
     importance      = 'impurity'
   )
   
-  OOB_RMSE[i] <- sqrt(optimal_ranger$prediction.error)
+  OOB_RMSE[i] <- sqrt(optimal_ranger_qm$prediction.error)
 }
 
 hist(OOB_RMSE, breaks = 20)
 
-#for perKGC plot
-Q5_importancesAll <- optimal_ranger$variable.importance %>% 
-      as_tibble() %>% 
-      bind_cols(names(optimal_ranger$variable.importance)) %>%
-      rename(importance = value, param = '...2') %>%
-      mutate(measure = "Q5")
+#All importances will be added to this table:
+importancesAll_qm <- optimal_ranger_qm$variable.importance %>% 
+  as_tibble() %>% 
+  bind_cols(names(optimal_ranger_qm$variable.importance)) %>%
+  rename(importance = value, param = '...2') %>%
+  mutate(measure = "q_mean")
 
-#filter to see top variables
-q5_tTen <- Q5_importancesAll %>%
-  arrange(desc(importance)) 
-
-q5_tTen <- q5_tTen[1:10,]
-
-q5_tTen %>%
-  ggplot(aes(x = param, y = importance)) +
-  geom_bar(stat="identity")
-
-q5_com <- intersect(colnames(forRF), q5_tTen$param)
-
-q5_var <- forRF |>
-  dplyr::select(q5_com) 
-
-cor_matrix <- cor(q5_var)
-
-print(cor_matrix)
-
-# Check for missing and infinite values in the data
-any(is.na(q5_var))
-
-forMR <- cbind(q5_var, RFpredictors$q5)
-
-# Fit a stepwise regression model with the selected predictors
-q5_step_model <- step(lm(forMR$`RFpredictors$q5` ~ ., data = forMR), direction = "both")
-
-# Print the model summary
-summary(q5_step_model)
-
-q5pred <- forMR %>%
-  add_predictions(q5_step_model) |>
-  rename("q5_actual" = "RFpredictors$q5")
-
-Q5 <-  q5pred %>% drop_na() %>%
-  ggplot(aes(x = q5_actual, y = pred)) +
-  geom_point() +
-  stat_poly_line(method=lm) +
-  stat_poly_eq() +
-  xlab("Actual Q5") +
-  ylab("Predicted Q5") +
-  theme_classic()
-
-Q5
 ```
 
-## Predicting for Q95
+# Tune and run optimal model for low flow (q5)
+
 ```{r}
-# hyperparameter grid search
 hyper_grid <- expand.grid(
-  #mtry       = seq(20, 30, by = 2), #mtry should be square of available params (35)
   mtry       = seq(3,7, by = 1),
   node_size  = seq(2,9, by = 2),
   sampe_size = c(.55, .632, .70, .80),
   OOB_RMSE   = 0
 )
 
-# total number of combinations
-nrow(hyper_grid)
-## [1] 80
-
 for(i in 1:nrow(hyper_grid)) {
   
   # train model
   model <- ranger(
-    formula         = RFpredictors$q95 ~ ., #BFI is what you're trying to predict 
-    data            = forRF, #for RF is all the other parameters
+    formula         = signatures$q5 ~ ., #BFI is what you're trying to predict 
+    data            = standard_p_slice, #for RF is all the other parameters
     num.trees       = 500,
     mtry            = hyper_grid$mtry[i],
     min.node.size   = hyper_grid$node_size[i],
@@ -383,17 +368,13 @@ for(i in 1:nrow(hyper_grid)) {
   hyper_grid$OOB_RMSE[i] <- sqrt(model$prediction.error)
 }
 
-#print RMSE
-hyper_grid %>% 
-  dplyr::arrange(OOB_RMSE)
-
 OOB_RMSE <- vector(mode = "numeric", length = 100)
 
 for(i in seq_along(OOB_RMSE)) {
-
-  optimal_ranger <- ranger(
-    formula         = RFpredictors$q95 ~ ., 
-    data            = forRF, 
+  
+  optimal_ranger_q5 <- ranger(
+    formula         = signatures$q5 ~ ., 
+    data            = standard_p_slice, 
     num.trees       = 500,
     mtry            = 7, #was 26
     min.node.size   = 7, #was 5
@@ -401,166 +382,254 @@ for(i in seq_along(OOB_RMSE)) {
     importance      = 'impurity'
   )
   
-  OOB_RMSE[i] <- sqrt(optimal_ranger$prediction.error)
+  OOB_RMSE[i] <- sqrt(optimal_ranger_q5$prediction.error)
 }
 
 hist(OOB_RMSE, breaks = 20)
 
-#for perKGC plot
-Q95_importancesAll <- optimal_ranger$variable.importance %>% 
-      as_tibble() %>% 
-      bind_cols(names(optimal_ranger$variable.importance)) %>%
-      rename(importance = value, param = '...2') %>%
-      mutate(measure = "Q95")
+#All importances will be added to this table:
+importancesAll_q5 <- optimal_ranger_q5$variable.importance %>% 
+  as_tibble() %>% 
+  bind_cols(names(optimal_ranger_q5$variable.importance)) %>%
+  rename(importance = value, param = '...2') %>%
+  mutate(measure = "q5")
 
-#filter to see top variables
-q95_tTen <- Q95_importancesAll %>%
-  arrange(desc(importance)) 
-
-q95_tTen <- q95_tTen[1:10,]
-
-q95_tTen %>%
-  ggplot(aes(x = param, y = importance)) +
-  geom_bar(stat="identity")
-
-q95_com <- intersect(colnames(forRF), q95_tTen$param)
-
-q95_var <- forRF |>
-  dplyr::select(q95_com) 
-
-cor_matrix <- cor(q95_var)
-
-print(cor_matrix)
-
-# Check for missing and infinite values in the data
-any(is.na(q95_var))
-
-forMR <- cbind(q95_var, RFpredictors$q95)
-
-# Fit a stepwise regression model with the selected predictors
-q95_step_model <- step(lm(forMR$`RFpredictors$q95` ~ ., data = forMR), direction = "both")
-
-# Print the model summary
-summary(q95_step_model)
-
-q95pred <- forMR %>%
-  add_predictions(q95_step_model) |>
-  rename("q95_actual" = "RFpredictors$q95")
-
-Q95 <-  q95pred %>% drop_na() %>%
-  ggplot(aes(x = q95_actual, y = pred)) +
-  geom_point() +
-  stat_poly_line(method=lm) +
-  stat_poly_eq() +
-  xlab("Actual Q95") +
-  ylab("Predicted Q95") +
-  theme_classic()
-
-Q95
 ```
 
-## Some data manipulation for accessing the daily streamflow records for gauge id's
+# Tune and run optimal model for high flow (q95)
+
 ```{r}
-library(purrr)
-library(fs)
+hyper_grid <- expand.grid(
+  mtry       = seq(3,7, by = 1),
+  node_size  = seq(2,9, by = 2),
+  sampe_size = c(.55, .632, .70, .80),
+  OOB_RMSE   = 0
+)
 
-QdatBaseflow <- read_delim("CAMELS Data/camels_hydro.txt")|>
-  filter(gauge_id %in% AppGages$gauge_id) |>
-  na.omit()
-
-# Get gauge IDs
-gauge_ids <- AppGages$gauge_id
-
-dir <- "C:/Users/lfink/Desktop/camels API scripts/basin_dataset_public_v1p2/usgs_streamflow"
-
-# Get a list of all text files in the directory and its subdirectories
-all_files <- list.files(path = dir, pattern = "\\.txt$", full.names = TRUE, recursive = TRUE)
-
-column_names <- c("gauge_id", "year", "month", "day", "q", "QCflag")
-
-# Initialize an empty list to store the data frames
-data_list <- list()
-
-# Loop through the gauge IDs
-for (id in gauge_ids) {
-  # Create the file name pattern
-  pattern <- paste0(id, "_streamflow_qc.txt$")
+for(i in 1:nrow(hyper_grid)) {
   
-  # Find the file that matches the current gauge ID
-  file <- grep(pattern, all_files, value = TRUE)
+  # train model
+  model <- ranger(
+    formula         = signatures$q95 ~ ., #BFI is what you're trying to predict 
+    data            = standard_p_slice, #for RF is all the other parameters
+    num.trees       = 500,
+    mtry            = hyper_grid$mtry[i],
+    min.node.size   = hyper_grid$node_size[i],
+    sample.fraction = hyper_grid$sampe_size[i],
+    seed            = 123
+  )
   
-  # Check if the file exists
-  if (length(file) > 0) {
-    # Read the file and store it in the list
-    data_list[[id]] <- read.table(file, header = FALSE, col.names = column_names, sep = "")
-  }
+  # add OOB error to grid
+  hyper_grid$OOB_RMSE[i] <- sqrt(model$prediction.error)
 }
 
-# Bind all the data frames in the list
-AppsDailyQ <- bind_rows(data_list)
+OOB_RMSE <- vector(mode = "numeric", length = 100)
 
-#Check for gaps in data
-unique(AppsDailyQ$QCflag)
-
-#Filter out days where flow info is missing (QCflag = M)
-AppsDailyQ <- AppsDailyQ |> 
-  filter(QCflag != "M") |>
-  #filter(QCflag != "A:e") |> 
-  mutate(date = dmy(paste(day, month, year))) |> 
-  dplyr:: select(-year, -month, -day)
+for(i in seq_along(OOB_RMSE)) {
   
-AppsDailyQ$gauge_id <- as.character(AppsDailyQ$gauge_id) 
-AppsDailyQ$gauge_id <- paste0("0", AppsDailyQ$gauge_id)
-
-```
-
- ## Calculating RBI (flashiness):
- 
- Baseflow separation:
-  - need to acquire CAMELS timeseries data
-```{r}
-
-source("BaseflowSeparation.R")
-
-#need to calculate flow in mm/day
-QdatDV <- left_join(AppsDailyQ, AppGages, by="gauge_id") 
-
-QdatDV <- QdatDV |> 
-  mutate(Qmm_day = 2.447 * q / DRAIN_SQKM)
-
-# Might want to write out this big CSV here!
-#Input: Vector with baseflow
-# Quick flow: total flow - baseflow
-QdatDV$baseflow <- NA
-
-for (x in gauge_ids) {
-  QdatDV$baseflow[QdatDV$gauge_id == x] <- 
-    BaseflowSeparation(QdatDV$Qmm_day[QdatDV$gauge_id == x])$bt
+  optimal_ranger_q95 <- ranger(
+    formula         = signatures$q95 ~ ., 
+    data            = standard_p_slice, 
+    num.trees       = 500,
+    mtry            = 7, #was 26
+    min.node.size   = 7, #was 5
+    sample.fraction = .8,
+    importance      = 'impurity'
+  )
   
+  OOB_RMSE[i] <- sqrt(optimal_ranger_q95$prediction.error)
 }
 
-QdatDV |> 
-  filter(gauge_id == gauge_ids[1]) |> 
-  ggplot(aes(x = date, y = Qmm_day)) +
-  geom_line() +
-  geom_line(aes(y=baseflow), color = "blue")
+hist(OOB_RMSE, breaks = 20)
 
-#sum total flow, baseflow for each gage each year. BFI calculation
-BFyearlysum <- QdatBaseflow %>% mutate(Year = year(date)) %>%
-  group_by(year, gauge_id) %>%
-  summarize(BFyear = sum(bt),
-            Qyear = sum(Flow),
-            BFI = BFyear / Qyear)
-
-#join to attributes
-BFyearlysum <- left_join(BFyearlysum, AppGagesSlim, by = c("site_no" = "STAID"))
-
-#average annual BFI
-BFI_means <- BFyearlysum %>% group_by(site_no) %>%
-  summarize(BFI_MeanAnnual = mean(BFI))
-
-#join to attributes
-BFI_means <- inner_join(BFI_means, AppGagesSlim, by = c("site_no" = "STAID"))
+#All importances will be added to this table:
+importancesAll_q95 <- optimal_ranger_q95$variable.importance %>% 
+  as_tibble() %>% 
+  bind_cols(names(optimal_ranger_q95$variable.importance)) %>%
+  rename(importance = value, param = '...2') %>%
+  mutate(measure = "q95")
 ```
+
+# Tune and run optimal model for Richard Baker Flashiness (RBI)
+
+```{r}
+hyper_grid <- expand.grid(
+  mtry       = seq(3,7, by = 1),
+  node_size  = seq(2,9, by = 2),
+  sampe_size = c(.55, .632, .70, .80),
+  OOB_RMSE   = 0
+)
+
+for(i in 1:nrow(hyper_grid)) {
   
+  # train model
+  model <- ranger(
+    formula         = signatures$RBI ~ .,  
+    data            = standard_p_slice, 
+    num.trees       = 500,
+    mtry            = hyper_grid$mtry[i],
+    min.node.size   = hyper_grid$node_size[i],
+    sample.fraction = hyper_grid$sampe_size[i],
+    seed            = 123
+  )
+  
+  # add OOB error to grid
+  hyper_grid$OOB_RMSE[i] <- sqrt(model$prediction.error)
+}
+
+OOB_RMSE <- vector(mode = "numeric", length = 100)
+
+for(i in seq_along(OOB_RMSE)) {
+  
+  optimal_ranger_rbi <- ranger(
+    formula         = signatures$RBI ~ ., 
+    data            = standard_p_slice, 
+    num.trees       = 500,
+    mtry            = 7, #was 26
+    min.node.size   = 7, #was 5
+    sample.fraction = .8,
+    importance      = 'impurity'
+  )
+  
+  OOB_RMSE[i] <- sqrt(optimal_ranger_rbi$prediction.error)
+}
+
+hist(OOB_RMSE, breaks = 20)
+
+#All importances will be added to this table:
+importancesAll_rbi <- optimal_ranger_rbi$variable.importance %>% 
+  as_tibble() %>% 
+  bind_cols(names(optimal_ranger_rbi$variable.importance)) %>%
+  rename(importance = value, param = '...2') %>%
+  mutate(measure = "RBI")
+```
+
+# Tune and run model for runoff ratio
+
+```{r}
+hyper_grid <- expand.grid(
+  mtry       = seq(3,7, by = 1),
+  node_size  = seq(2,9, by = 2),
+  sampe_size = c(.55, .632, .70, .80),
+  OOB_RMSE   = 0
+)
+
+for(i in 1:nrow(hyper_grid)) {
+  
+  # train model
+  model <- ranger(
+    formula         = signatures$runoff_ratio ~ .,  
+    data            = standard_p_slice, 
+    num.trees       = 500,
+    mtry            = hyper_grid$mtry[i],
+    min.node.size   = hyper_grid$node_size[i],
+    sample.fraction = hyper_grid$sampe_size[i],
+    seed            = 123
+  )
+  
+  # add OOB error to grid
+  hyper_grid$OOB_RMSE[i] <- sqrt(model$prediction.error)
+}
+
+OOB_RMSE <- vector(mode = "numeric", length = 100)
+
+for(i in seq_along(OOB_RMSE)) {
+  
+  optimal_ranger_rr <- ranger(
+    formula         = signatures$runoff_ratio ~ ., 
+    data            = standard_p_slice, 
+    num.trees       = 500,
+    mtry            = 7, 
+    min.node.size   = 7, 
+    sample.fraction = .8,
+    importance      = 'impurity'
+  )
+  
+  OOB_RMSE[i] <- sqrt(optimal_ranger_rr$prediction.error)
+}
+
+hist(OOB_RMSE, breaks = 20)
+
+#All importances will be added to this table:
+importancesAll_rr <- optimal_ranger_rr$variable.importance %>% 
+  as_tibble() %>% 
+  bind_cols(names(optimal_ranger_rr$variable.importance)) %>%
+  rename(importance = value, param = '...2') %>%
+  mutate(measure = "runoff_ratio")
+```
+
+# Bind all importance outputs together
+
+```{r, fig.width=12, fig.height=6}
+importancesAll <- importancesAll_bfi |> 
+  rbind(importancesAll_q5) |> 
+  rbind(importancesAll_q95) |> 
+  rbind(importancesAll_qm) |> 
+  rbind(importancesAll_rbi) |> 
+  rbind(importancesAll_rr)
+
+num_classes <- 10
+colors <- viridis_pal(option = "C")(num_classes)
+
+plot_top_n_importance <- function(data, n = 10) {
+  data %>%
+    group_by(measure) %>%
+    top_n(n, importance) %>%
+    ungroup() %>%
+    #arrange(desc(importance)) %>%
+    ggplot(aes(x = reorder(param, importance), y = importance, fill = param)) +
+    geom_bar(stat = "identity") +
+    coord_flip() +
+    facet_wrap(~ measure, scales = "free", nrow = 2) +
+    labs(x = " ", y = " ") +
+    scale_fill_viridis_d() +
+    theme_bw() +
+    theme(legend.position = "none")
+}
+
+bfi <- plot_top_n_importance(importancesAll_bfi, n = 10)
+qmean <- plot_top_n_importance(importancesAll_qm, n = 10)
+q5 <- plot_top_n_importance(importancesAll_q5, n = 10)
+q95 <- plot_top_n_importance(importancesAll_q95, n = 10)
+rr <- plot_top_n_importance(importancesAll_rr, n = 10)
+rbi <- plot_top_n_importance(importancesAll_rbi, n = 10)
+
+qmean + q5 + q95 + bfi + rr + rbi
+```
+
+# Optimal model versus observed plots
+
+```{r, fig.width=12, fig.height=6}
+bfi_pred <- predict(optimal_ranger_bfi, data = standard_p)$prediction
+qm_pred <- predict(optimal_ranger_qm, data = standard_p)$prediction
+q95_pred <- predict(optimal_ranger_q95, data = standard_p)$prediction
+q5_pred <- predict(optimal_ranger_q5, data = standard_p)$prediction
+rr_pred <- predict(optimal_ranger_rr, data = standard_p)$prediction
+rbi_pred <- predict(optimal_ranger_rbi, data = standard_p)$prediction
+
+pred_list <- list(bfi_pred, qm_pred, q5_pred, q95_pred, rr_pred, rbi_pred)                   
+                    
+col_names <- c("BFI", "q_mean", "q95", "q5", "rr", "rbi")
+
+signature_pred <- data.frame(setNames(pred_list, col_names))
+
+plot_observed_vs_predicted <- function(signature, predicted, actual) {
+  ggplot(data.frame(Actual = actual, Predicted = predicted), aes(x = Actual, y = Predicted)) +
+    geom_point() +
+    geom_abline(intercept = 0, slope = 1, linetype = "solid", color = "blue") +  # Add 45-degree line
+    labs(x = "Actual", y = "Predicted", title = paste(signature)) +
+    theme_bw()
+}
+
+bfi_po <- plot_observed_vs_predicted("BFI", signature_pred$BFI, signatures$baseflow_index)
+qm_po <- plot_observed_vs_predicted("Q Mean", signature_pred$q_mean, signatures$q_mean)
+q95_po <- plot_observed_vs_predicted("Q95", signature_pred$q95, signatures$q95)
+q5_po <- plot_observed_vs_predicted("Q5", signature_pred$q5, signatures$q5)
+rr_po <- plot_observed_vs_predicted("Runoff Ratio", signature_pred$rr, signatures$runoff_ratio)
+rbi_po <- plot_observed_vs_predicted("RBI", signature_pred$rbi, signatures$RBI)
+
+qm_po + q5_po + q95_po + bfi_po + rr_po + rbi_po
+```
+
+
   
