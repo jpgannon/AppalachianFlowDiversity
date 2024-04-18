@@ -148,7 +148,10 @@ USGS = st_read("C:\\Users\\Logan\\Desktop\\College\\Coursework\\Junior Year\\Res
 
 USGS_select = select(USGS, SOURCE_FEA, SOURCE_ORI, FEATUREDET, Measure, EventType, FLComID, AREA, PERIMETER, PHYSIODD_, PHYSIODD_I, FCODE, FENCODE, DIVISION, PROVINCE, SECTION, PROVCODE, geometry)
 
-camels_joined = right_join(USGS_select, camels_all, by=c('SOURCE_FEA'='gauge_id'))
+camels_tempjoin = right_join(USGS_select, camels_all, by=c('SOURCE_FEA'='gauge_id'))
+
+# Filter rows based on the condition
+camels_joined <- filter(camels_tempjoin, SOURCE_FEA != "03281100")
 
 #### case_when()
 
@@ -201,11 +204,11 @@ states = st_read("Mapping Data/cb_2018_us_state_20m") |>
 
 ###mapping
 
-mapview(camels_final)
+mapview(camels_joined)
 
 mapview(app_gauges)
 
-camels_mapping = st_sf(camels_final)
+camels_mapping = st_sf(camels_joined)
 
 #### tmap
 theme_set(theme_classic())
@@ -218,7 +221,8 @@ tmap_options(check.and.fix = TRUE)
 
 USgages_BFI <- 
   tm_shape(camels_joined)+
-  tm_dots(col = "baseflow_index", palette = "viridis", size = 0.15, title = "Baseflow Index") + # controls symbology: what field, color, size
+  tm_dots(col = "baseflow_index", palette = "viridis", size = 0.15, title="", style="quantile", n=6) + 
+  # controls symbology: what field, color, size
   tm_shape(states)+ # add states in background
   tm_borders() +
   tm_layout(legend.title.size = 1,
@@ -227,9 +231,8 @@ USgages_BFI <-
             title.position = c("center","top"),
             #legend.bg.color = "white",
             legend.bg.alpha = 1, 
-            main.title = "Baseflow Index",
-            main.title.position = c("center","top")) # positioning
-
+            title = "Baseflow Index",
+            inner.margins = c(0.13,0.03,0.13,0.03))
 
 #USgages_BFI2 <- 
   #tm_shape(camels_joined)+
@@ -244,7 +247,7 @@ USgages_BFI <-
 
 USgages_Q5 <- 
   tm_shape(camels_joined)+
-  tm_dots(col = "q5", palette = "viridis", size = 0.15, title = "") + 
+  tm_dots(col = "q5", palette = "viridis", size = 0.15, title = "", style="quantile", n=6) + 
   tm_shape(states)+ # add states in background
   tm_borders() +
   tm_layout(legend.title.size = 1,
@@ -252,12 +255,13 @@ USgages_Q5 <-
             legend.position = c("right","bottom"),
             #legend.bg.color = "white",
             legend.bg.alpha = 1,
-            main.title = "Low Flow (Q5)",
-            main.title.position = c("center","top")) # positioning
+            title = "Low Flow (Q5)",
+            title.position = c("center","top"),
+            inner.margins = c(0.13,0.03,0.13,0.03)) # positioning
 
 USgages_Q95 <- 
   tm_shape(camels_joined)+
-  tm_dots(col = "q95", palette = "viridis", size = 0.15, title = "") + 
+  tm_dots(col = "q95", palette = "viridis", size = 0.15, title = "", style="quantile", n=6) + 
   tm_shape(states)+ # add states in background
   tm_borders() +
   tm_layout(legend.title.size = 1,
@@ -265,12 +269,13 @@ USgages_Q95 <-
             legend.position = c("right","bottom"),
             #legend.bg.color = "white",
             legend.bg.alpha = 1,
-            main.title = "High Flow (Q95)",
-            main.title.position = c("left","top"))
+            title = "High Flow (Q95)",
+            title.position = c("center","top"),
+            inner.margins = c(0.13,0.03,0.13,0.03))
 
 USgages_Qmean <- 
   tm_shape(camels_joined)+
-  tm_dots(col = "q_mean", palette = "viridis", size = 0.15, title = "") + 
+  tm_dots(col = "q_mean", palette = "viridis", size = 0.15, title = "", style="quantile", n=6) + 
   tm_shape(states)+ # add states in background
   tm_borders() +
   tm_layout(legend.title.size = 1,
@@ -279,11 +284,12 @@ USgages_Qmean <-
             #legend.bg.color = "white",
             legend.bg.alpha = 1,
             title = "Mean Flow",
-            title.position = c("right","top"))
+            title.position = c("center","top"),
+            inner.margins = c(0.13,0.03,0.13,0.03))
 
 USgages_runoffratio <- 
   tm_shape(camels_joined)+
-  tm_dots(col = "runoff_ratio", palette = "viridis", size = 0.15, title = "") + 
+  tm_dots(col = "runoff_ratio", palette = "viridis", size = 0.15, title = "", style="quantile", n=6) + 
   tm_shape(states)+ # add states in background
   tm_borders() +
   tm_layout(legend.title.size = 1,
@@ -291,12 +297,13 @@ USgages_runoffratio <-
             legend.position = c("right","bottom"),
             #legend.bg.color = "white",
             legend.bg.alpha = 1,
-            main.title = "Runoff Ratio",
-            main.title.position = c("left","top"))
+            title = "Runoff Ratio",
+            title.position = c("center","top"),
+            inner.margins = c(0.13,0.03,0.13,0.03))
 
 USgages_RBI <- 
   tm_shape(camels_joined)+
-  tm_dots(col = "RBI", palette = "viridis", size = 0.15, title = "") + 
+  tm_dots(col = "RBI", palette = "viridis", size = 0.15, title = "", style="quantile", n=6) + 
   tm_shape(states)+ # add states in background
   tm_borders() +
   tm_layout(legend.title.size = 1,
@@ -304,8 +311,9 @@ USgages_RBI <-
             legend.position = c("right","bottom"),
             #legend.bg.color = "white",
             legend.bg.alpha = 1,
-            main.title = "Richards-Baker Flashiness Index",
-            main.title.position = c("left","top"))
+            title = "Richards-Baker Flashiness Index",
+            title.position = c("center","top"),
+            inner.margins = c(0.13,0.03,0.13,0.03))
 
 Conus_Maps <- tmap_arrange(USgages_BFI, USgages_Qmean, USgages_Q5, USgages_Q95, nrow = 2, ncol = 2)
 Conus_Maps
@@ -493,37 +501,37 @@ summary(app_gauges$RBI)
 
 ### variance
 
-var(camels_joined$q_mean, na.rm=TRUE)
-var(app_gauges$q_mean, na.rm=TRUE)
+var(camels_joined$q_mean)
+var(app_gauges$q_mean)
 
-var(camels_joined$q5,na.rm=TRUE)
-var(app_gauges$q5, na.rm=TRUE)
+var(camels_joined$q5)
+var(app_gauges$q5)
 
-var(camels_joined$q95,na.rm=TRUE)
-var(app_gauges$q95, na.rm=TRUE)
+var(camels_joined$q95)
+var(app_gauges$q95)
 
-var(camels_joined$runoff_ratio,na.rm=TRUE)
-var(app_gauges$runoff_ratio, na.rm=TRUE)
+var(camels_joined$runoff_ratio)
+var(app_gauges$runoff_ratio)
 
-var(camels_joined$baseflow_index,na.rm=TRUE)
-var(app_gauges$baseflow_index, na.rm=TRUE)
+var(camels_joined$baseflow_index)
+var(app_gauges$baseflow_index)
 
-var(camels_joined$RBI,na.rm=TRUE)
-var(app_gauges$RBI, na.rm=TRUE)
+var(camels_joined$RBI)
+var(app_gauges$RBI)
 
 #### density functions
 
 plot(density(camels_joined$baseflow_index))
 plot(density(app_gauges$baseflow_index))
 
-plot(density(camels_density$runoff_ratio, na.rm = TRUE))
-plot(density(app_gauges$runoff_ratio, na.rm = TRUE))
+plot(density(camels_density$runoff_ratio))
+plot(density(app_gauges$runoff_ratio))
 
-plot(density(camels_joined$q5, na.rm = TRUE))
-plot(density(app_gauges$q5, na.rm = TRUE))
+plot(density(camels_joined$q5))
+plot(density(app_gauges$q5))
 
-plot(density(camels_joined$q95, na.rm = TRUE))
-plot(density(app_gauges$q95, na.rm = TRUE))
+plot(density(camels_joined$q95))
+plot(density(app_gauges$q95))
 
 ### Levene Test
 
@@ -559,6 +567,32 @@ data_list <- list(APPs_bfqmean, CONUS_bfqmean)
                   
 bftest_qmean <- bf.test(data_list)
 print(bftest_mean)
+
+
+```
+
+```{r}
+####install library
+#install.packages("spdep")
+library(spdep)
+
+#### Write csv as shapefile
+morans_I = st_as_sf(camels_joined, wkt="geometry", crs=102010)
+
+mapview(morans_I)
+
+#### distance matrix
+
+dmatrix <- knn2nb(knearneigh(morans_I, k = 5, longlat=FALSE))
+dmatrix <- nb2listw(dmatrix, style = "W", zero.policy=TRUE)
+
+### Univariate Local Moran's I
+
+RBImoran <- localmoran_perm(morans_I$RBI, listw = dmatrix, nsim=999, alternative = "greater")
+
+
+
+
 
 
 ```
