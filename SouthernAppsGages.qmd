@@ -33,12 +33,17 @@ library(patchwork)
 library(corrplot)
 library(datawizard)
 library(tidymodels)
+library(tigris)
+library(viridisLite)
+library(tidyr)
+library(dplyr)
 
-tmap_mode("view")
+library(GGally)
+
+tmap_mode("plot")
 
 theme_set(theme_classic())
 ```
-
 
 ## Read in shapefile for Appalachian physiographic region
 
@@ -54,7 +59,14 @@ AppRegions <- st_read("Data/Shapefiles/AppalachianRegions.shp")
 
 AppGages <- read_csv("CAMELSapps_attr.csv")
 
-AppGagesshp <- st_read("Data/SAgages.shp") 
+AppGagesshp <- st_read("Data/Shapefiles/AppGages_signatures.shp")
+
+signatures <- read_delim("CAMELS Data/camels_hydro_all.csv")|>
+  filter(gauge_id %in% AppGages$gauge_id) |> 
+  na.omit()
+
+AppGagesshp <- AppGagesshp %>%
+  filter(gauge_id != "03281100")
 
 ProvinceMap <- tm_shape(AppRegions)+
   tm_polygons(col = "PROVINCE", palette = "Spectral")+
@@ -66,17 +78,12 @@ tm_shape(us_states)+
 
 ProvinceMap
 
-mapview(AppGagesshp)
 ```
 
 ## Plots:
  - Study Area Map(s)
  - Signature maps
-```{r}
-#join AppGages to Paramtypes shp
-AppGages_df <- AppGages %>%
-  as_data_frame()
-
+```{r, fig.width=12, fig.height=6}
 ProvinceMap <- tm_shape(AppRegions)+
   tm_polygons(col = "PROVINCE", palette = "BuGn")+
   tm_layout(legend.title.size = 1,
@@ -91,75 +98,100 @@ tm_shape(us_states)+
 
 ProvinceMap
 
-# Create the plot using ggplot2
-BFI <- tm_shape(AppRegions) +
+bfi <- tm_shape(AppRegions) +
   tm_fill("gray90")+
+  tm_shape(us_states)+
+  tm_borders() +
   tm_shape(AppGagesshp) +
-  tm_dots(col = "BFI_AVE", palette = "-viridis", size = 0.3) +
-  tm_layout("BFI",
+  tm_dots(col = "baseflow_i", palette = "-viridis", size = 0.3, border.col = "gray38", shape = 21) +
+  tm_layout("Baseflow Index",
           legend.title.size = 1,
           legend.text.size = 0.6,
           legend.position = c("right","bottom"),
           legend.bg.color = "white",
-          legend.bg.alpha = 1) +
-  tm_shape(us_states) +
-  tm_borders()
+          legend.bg.alpha = 1) 
 
-BFI
+bfi
 
-Flash <- tm_shape(AppRegions) +
+lflo <- tm_shape(AppRegions) +
   tm_fill("gray90")+
+  tm_shape(us_states)+
+  tm_borders() +
   tm_shape(AppGagesshp) +
-  tm_dots(col = "Flashiness", palette = "-viridis", size = 0.3) +
-  tm_layout("Flashiness",
+  tm_dots(col = "q5", palette = "-viridis", size = 0.3, border.col = "gray38", shape = 21) +
+  tm_layout("Low Flow (5%)",
           legend.title.size = 1,
           legend.text.size = 0.6,
           legend.position = c("right","bottom"),
           legend.bg.color = "white",
-          legend.bg.alpha = 1) +
-  tm_shape(us_states) +
-  tm_borders()
+          legend.bg.alpha = 1) 
 
-Flash
+lflo
 
-TenthP <- tm_shape(AppRegions) +
+hflo <- tm_shape(AppRegions) +
   tm_fill("gray90")+
-  tm_shape(AppGages_RF) +
-  tm_dots(col = "TenthP", palette = "-viridis", size = 0.3) +
-  tm_layout("TenthP Flow",
+  tm_shape(us_states)+
+  tm_borders() +
+  tm_shape(AppGagesshp) +
+  tm_dots(col = "q95", palette = "viridis", size = 0.3, border.col = "gray38", shape = 21) +
+  tm_layout("High Flow (95%)",
           legend.title.size = 1,
           legend.text.size = 0.6,
           legend.position = c("right","bottom"),
           legend.bg.color = "white",
-          legend.bg.alpha = 1) +
-  tm_shape(us_states) +
-  tm_borders()
+          legend.bg.alpha = 1) 
+hflo
 
-TenthP
-
-NinetiethP <- tm_shape(AppRegions) +
+runr <- tm_shape(AppRegions) +
   tm_fill("gray90")+
-  tm_shape(AppGages_RF) +
-  tm_dots(col = "NinetiethP", palette = "-viridis", size = 0.3) +
-  tm_layout("NinetiethP Flow",
+  tm_shape(us_states)+
+  tm_borders() +
+  tm_shape(AppGagesshp) +
+  tm_dots(col = "runoff_rat", palette = "-viridis", size = 0.3, border.col = "gray38", shape = 21) +
+  tm_layout("Runoff Ratio",
           legend.title.size = 1,
           legend.text.size = 0.6,
           legend.position = c("right","bottom"),
           legend.bg.color = "white",
-          legend.bg.alpha = 1) +
-  tm_shape(us_states) +
-  tm_borders()
+          legend.bg.alpha = 1) 
 
-NinetiethP
+runr
 
-Maps <- tmap_arrange(BFI, Flash, NinetiethP, TenthP, nrow = 2, ncol = 2)
-Maps
+qmd <- tm_shape(AppRegions) +
+  tm_fill("gray90")+
+  tm_shape(us_states)+
+  tm_borders() +
+  tm_shape(AppGagesshp) +
+  tm_dots(col = "q_mean", palette = "-viridis", size = 0.3, border.col = "gray38", shape = 21) +
+  tm_layout("Mean Daily Discharge",
+          legend.title.size = 1,
+          legend.text.size = 0.6,
+          legend.position = c("right","bottom"),
+          legend.bg.color = "white",
+          legend.bg.alpha = 1) 
 
-tmap_save(Maps, "RFMaps.png")
+qmd
+
+rbi <- tm_shape(AppRegions) +
+  tm_fill("gray90")+
+  tm_shape(us_states)+
+  tm_borders() +
+  tm_shape(AppGagesshp) +
+  tm_dots(col = "RBI", palette = "-viridis", size = 0.3, border.col = "gray38", shape = 21) +
+  tm_layout("RBI",
+          legend.title.size = 1,
+          legend.text.size = 0.6,
+          legend.position = c("right","bottom"),
+          legend.bg.color = "white",
+          legend.bg.alpha = 1) 
+
+rbi
+
+tmap_arrange(qmd, lflo, hflo, runr, bfi, rbi, ncol = 3)
+
+#tmap_save(Maps, "RFMaps.png")
 ```
  
-
-
 ## Read in and clean data for Random Forest.
 
 params: watershed characteristic data from CAMELS
@@ -194,21 +226,75 @@ signatures <- signatures |>
 
 # Correlation matrix and PCA
 
-```{r}
+```{r, fig.width=12, fig.height=8}
+library(factoextra)
+library(FactoMineR)
+
 cor_matrix <- cor(standard_p)
 
 corrplot(cor_matrix)
 
+GGally::ggcorr(standard_p,
+              method = c("everything", "pearson"),
+              name = expression(rho),
+              angle = -45,
+              label = TRUE,
+              label_alpha = TRUE)
+
 # PCA
-pca <- prcomp(cor_matrix, scale = TRUE)
+pca <- prcomp(cor_matrix, 
+              center = TRUE,
+              scale = TRUE)
 
 pca$rotation <- -1*pca$rotation
 
 pca$rotation
 
+pca2 <- PCA(standard_p, scale.unit = TRUE, graph = FALSE)
+summary(pca2)
+plot(pca2, choix = "var")
+
+fviz_pca_ind(pca,
+             col.ind = "cos2",
+             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+             repel = TRUE)
+
+fviz_pca_var(pca,
+             col.ind = "contrib",
+             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+             repel = TRUE)
+
+biplot(pca, main = "Biplot", scale = 0)
+
 ```
 
+Remove correlated variables:
+  - frac_snow
+  - 
+
+```{r}
+filtered_cor <- cor_matrix
+
+filtered_cor[abs(filtered_cor) < 0.8] <- NA
+
+diag(filtered_cor) <- NA
+
+strong_cor <- which(!is.na(filtered_cor), arr.ind = TRUE)
+
+for (i in 1:nrow(strong_cor)) {
+  row <- rownames(cor_matrix)[strong_cor[i,1]]
+  col <- colnames(cor_matrix)[strong_cor[i,2]]
+  correlation <- cor_matrix[strong_cor[i,1], strong_cor[i,2]]
+  cat("Variable pair:", row, "-", col, ", Correlation:", correlation, "\n")
+}
+
+standard_p <- standard_p |> 
+  dplyr::select(-frac_snow, -low_prec_dur, -low_prec_freq, -glim_2nd_class_frac, -max_water_content, -soil_porosity, -soil_conductivity, -soil_depth_statsgo, -lai_max, -gvf_max)
+```
+
+
 Make both data frames same length, define function to bind them together.
+Seed value to pick 80
 
 ```{r}
 standard_p_slice <- standard_p %>%
@@ -217,9 +303,9 @@ standard_p_slice <- standard_p %>%
 signatures <- signatures %>%
   slice_tail(n=80)
 
-bind_p <- function(signature, parameters) {
-  bind_cols(signature, parameters)
-}
+#bind_p <- function(signature, parameters) {
+ # bind_cols(signature, parameters)
+#}
 ```
 
 Initialize model for baseflow index (baseflow_index)
@@ -431,9 +517,9 @@ for(i in seq_along(OOB_RMSE)) {
     formula         = signatures$q95 ~ ., 
     data            = standard_p_slice, 
     num.trees       = 500,
-    mtry            = 7, #was 26
-    min.node.size   = 7, #was 5
-    sample.fraction = .8,
+    mtry            = 3, #was 26
+    min.node.size   = 8, #was 5
+    sample.fraction = .5,
     importance      = 'impurity'
   )
   
@@ -600,18 +686,20 @@ qmean + q5 + q95 + bfi + rr + rbi
 # Optimal model versus observed plots
 
 ```{r, fig.width=12, fig.height=6}
-bfi_pred <- predict(optimal_ranger_bfi, data = standard_p)$prediction
-qm_pred <- predict(optimal_ranger_qm, data = standard_p)$prediction
-q95_pred <- predict(optimal_ranger_q95, data = standard_p)$prediction
-q5_pred <- predict(optimal_ranger_q5, data = standard_p)$prediction
-rr_pred <- predict(optimal_ranger_rr, data = standard_p)$prediction
-rbi_pred <- predict(optimal_ranger_rbi, data = standard_p)$prediction
+standard_p80 <- slice_tail(standard_p, n = 80)
+
+bfi_pred <- predict(optimal_ranger_bfi, data = standard_p80)$prediction
+qm_pred <- predict(optimal_ranger_qm, data = standard_p80)$prediction
+q95_pred <- predict(optimal_ranger_q95, data = standard_p80)$prediction
+q5_pred <- predict(optimal_ranger_q5, data = standard_p80)$prediction
+rr_pred <- predict(optimal_ranger_rr, data = standard_p80)$prediction
+rbi_pred <- predict(optimal_ranger_rbi, data = standard_p80)$prediction
 
 pred_list <- list(bfi_pred, qm_pred, q5_pred, q95_pred, rr_pred, rbi_pred)                   
                     
 col_names <- c("BFI", "q_mean", "q95", "q5", "rr", "rbi")
 
-signature_pred <- data.frame(setNames(pred_list, col_names))
+signature_pred <- data.frame(setNames(pred_list, col_names)) 
 
 plot_observed_vs_predicted <- function(signature, predicted, actual) {
   ggplot(data.frame(Actual = actual, Predicted = predicted), aes(x = Actual, y = Predicted)) +
@@ -629,6 +717,28 @@ rr_po <- plot_observed_vs_predicted("Runoff Ratio", signature_pred$rr, signature
 rbi_po <- plot_observed_vs_predicted("RBI", signature_pred$rbi, signatures$RBI)
 
 qm_po + q5_po + q95_po + bfi_po + rr_po + rbi_po
+```
+
+```{r, fig.width=12, fig.height=6}
+library(ggsci)
+param_key <- read_csv("Data/param_key.csv")
+
+importance_key <- merge(importancesAll, param_key, by.x = "param", by.y = "var")
+
+importance_plot <- importance_key |> 
+  ggplot(aes(x = measure, y = importance, fill = group)) +
+  geom_col(position = "fill") +
+  scale_y_continuous(labels = scales::percent) +
+  scale_color_igv() +
+  scale_fill_igv() +
+  #scale_fill_brewer(palette = "Dark2") +
+  labs(x = "Hydrologic Measure",
+       y = "Importance from RF") +
+  coord_flip() +
+  scale_x_discrete(labels = c("Runoff Ratio", "RBI", "High Flow (Q95)", "Low Flow (Q5)", "Mean Daily Discharge", "Baseflow Index")) +
+  guides(fill = guide_legend(title = "Parameter Group"))
+
+importance_plot
 ```
 
 
