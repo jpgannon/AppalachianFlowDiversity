@@ -227,7 +227,7 @@ USgages_BFI <-
   tm_borders() +
   tm_layout(legend.title.size = 1,
             legend.text.size = 0.6,
-            legend.position = c("right","bottom"),
+            legend.position = c("left","bottom"),
             title.position = c("center","top"),
             #legend.bg.color = "white",
             legend.bg.alpha = 1, 
@@ -251,8 +251,8 @@ USgages_Q5 <-
   tm_shape(states)+ # add states in background
   tm_borders() +
   tm_layout(legend.title.size = 1,
-            legend.text.size = 0.6,
-            legend.position = c("right","bottom"),
+            legend.text.size = 0.4,
+            legend.position = c("left","bottom"),
             #legend.bg.color = "white",
             legend.bg.alpha = 1,
             title = "Low Flow (Q5)",
@@ -265,8 +265,8 @@ USgages_Q95 <-
   tm_shape(states)+ # add states in background
   tm_borders() +
   tm_layout(legend.title.size = 1,
-            legend.text.size = 0.6,
-            legend.position = c("right","bottom"),
+            legend.text.size = 0.4,
+            legend.position = c("left","bottom"),
             #legend.bg.color = "white",
             legend.bg.alpha = 1,
             title = "High Flow (Q95)",
@@ -279,11 +279,11 @@ USgages_Qmean <-
   tm_shape(states)+ # add states in background
   tm_borders() +
   tm_layout(legend.title.size = 1,
-            legend.text.size = 0.6,
-            legend.position = c("right","bottom"),
+            legend.text.size = 0.4,
+            legend.position = c("left","bottom"),
             #legend.bg.color = "white",
             legend.bg.alpha = 1,
-            title = "Mean Flow",
+            title = "Mean Daily Flow",
             title.position = c("center","top"),
             inner.margins = c(0.13,0.03,0.13,0.03))
 
@@ -293,8 +293,8 @@ USgages_runoffratio <-
   tm_shape(states)+ # add states in background
   tm_borders() +
   tm_layout(legend.title.size = 1,
-            legend.text.size = 0.6,
-            legend.position = c("right","bottom"),
+            legend.text.size = 0.4,
+            legend.position = c("left","bottom"),
             #legend.bg.color = "white",
             legend.bg.alpha = 1,
             title = "Runoff Ratio",
@@ -307,15 +307,15 @@ USgages_RBI <-
   tm_shape(states)+ # add states in background
   tm_borders() +
   tm_layout(legend.title.size = 1,
-            legend.text.size = 0.6,
-            legend.position = c("right","bottom"),
+            legend.text.size = 0.4,
+            legend.position = c("left","bottom"),
             #legend.bg.color = "white",
             legend.bg.alpha = 1,
             title = "Richards-Baker Flashiness Index",
             title.position = c("center","top"),
             inner.margins = c(0.13,0.03,0.13,0.03))
 
-Conus_Maps <- tmap_arrange(USgages_BFI, USgages_Qmean, USgages_Q5, USgages_Q95, nrow = 2, ncol = 2)
+Conus_Maps <- tmap_arrange(USgages_Qmean, USgages_Q5, USgages_Q95, USgages_BFI, USgages_runoffratio, USgages_RBI, nrow = 2, ncol = 3)
 Conus_Maps
 
 tmap_save(Conus_Maps)
@@ -326,7 +326,6 @@ print(USgages_Q95)
 print(USgages_Qmean)
 print(USgages_runoffratio)
 print(USgages_RBI)
-
 
 
 ```
@@ -458,16 +457,15 @@ pdf("four_plots.pdf")
 
 #arrange the plots on the pdf Page
 
-grid.arrange(baseflow,runoff_ratio,q5,q95,nrow=4)
+grid.arrange(q_mean,q5,q95,nrow=4)
 
 dev.off()
 
 pdf("two_plots.pdf")
 
-grid.arrange(q_mean, RBI,nrow=2)
+grid.arrange(baseflow, runoff_ratio, RBI,nrow=4)
 
 dev.off()
-  
 
 ### aes sets x and y variables
 ### make new column in CAMELS with new variable Appregions "yes" or "no"
